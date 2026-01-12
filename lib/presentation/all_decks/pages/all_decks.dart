@@ -32,10 +32,10 @@ class AllDecksPage extends StatelessWidget {
       SporDecks(),
       GunlukYasamDecks(),
       BilimVeGenelKDecks(),
-      CizDecks(),
       UnlulerDecks(),
       YemeklerDecks(),
       CizgiFilmAnimeDecks(),
+      CizDecks(),
     ];
 
     return Scaffold(

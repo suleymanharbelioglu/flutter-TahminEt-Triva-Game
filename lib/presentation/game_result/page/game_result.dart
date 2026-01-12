@@ -9,6 +9,7 @@ import 'package:ben_kimim/presentation/no_internet/page/no_internet.dart';
 import 'package:ben_kimim/presentation/phone_to_forhead/page/phone_to_forhead.dart';
 import 'package:ben_kimim/presentation/no_internet/bloc/internet_connection_cubit.dart';
 import 'package:ben_kimim/presentation/no_internet/bloc/internet_connection_state.dart';
+import 'package:ben_kimim/presentation/premium/bloc/ads_counter_cubit.dart';
 import 'package:ben_kimim/presentation/premium/bloc/is_user_premium_cubit.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -96,7 +97,12 @@ class _GameResultPageState extends State<GameResultPage> {
   }
 
   Future<void> _showInterstitialThenNavigate() async {
-    if (context.read<IsUserPremiumCubit>().state) return _navigateToGamePage();
+    context.read<AdsCounterCubit>().next();
+
+    if (context.read<IsUserPremiumCubit>().state ||
+        context.read<AdsCounterCubit>().state == false) {
+      return _navigateToGamePage();
+    }
 
     int attempts = 0;
     while (_interstitialAd == null && attempts < 20) {

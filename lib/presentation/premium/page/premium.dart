@@ -1,6 +1,3 @@
-// Boşlukları dikeyde %30 azaltılmış tam güncellenmiş kod
-// NOT: Sadece dikey boşluk (height, vertical padding/margin) azaltıldı. Başka hiçbir şeye dokunulmadı.
-
 import 'package:ben_kimim/common/widget/alert/secret_dialog.dart';
 import 'package:ben_kimim/data/app_purchase/model/product_model.dart';
 import 'package:ben_kimim/data/app_purchase/model/purchase_model.dart';
@@ -16,10 +13,12 @@ import 'package:ben_kimim/presentation/premium/bloc/unlock_premium.dart';
 import 'package:ben_kimim/presentation/premium/page/premium_info.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class PremiumPage extends StatelessWidget {
   const PremiumPage({super.key});
+
   @override
   Widget build(BuildContext context) {
     return MultiBlocProvider(
@@ -30,10 +29,8 @@ class PremiumPage extends StatelessWidget {
       ],
       child: BlocBuilder<PremiumStatusCubit, PremiumStatusState>(
         builder: (context, state) {
-          // unlock durumunu oku
           final unlock = context.watch<UnlockPremiumCubit>().state;
 
-          // Eğer gerçek premium ya da unlock (test) aktifse PremiumInfoPage'e git
           if (state is PremiumActive || unlock == true) {
             final productsState = context.read<LoadProductsCubit>().state;
 
@@ -41,22 +38,18 @@ class PremiumPage extends StatelessWidget {
             PurchaseModel? purchase;
 
             if (state is PremiumActive) {
-              // Gerçek premium kullanıcı
               purchase = state.purchase;
 
               if (productsState is LoadProductsSuccess &&
                   productsState.products.isNotEmpty) {
                 product = productsState.products.firstWhere(
                   (p) => p.productId == state.purchase.productId,
-                  orElse: () => productsState.products
-                      .first, // kesinlikle ProductModel döner çünkü liste dolu
+                  orElse: () => productsState.products.first,
                 );
               } else {
-                // Ürün listesi henüz yüklenmemiş veya boşsa, null bırak
                 product = null;
               }
             } else {
-              // Google test modu → sahte ürün ve sahte satın alma gönder
               product = ProductModel(
                 productId: "test_premium",
                 title: "Test Premium",
@@ -77,35 +70,36 @@ class PremiumPage extends StatelessWidget {
               purchase: purchase,
               product: product,
             );
-          } else {
-            // premium değilse normal sayfayı göster
-            return Scaffold(
-              backgroundColor: Colors.white,
-              body: SafeArea(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 24, vertical: 11), // 16 → 11 (%30 azaltıldı)
-                  child: Column(
-                    children: const [
-                      SizedBox(height: 13), // 18 → 13
-                      _HeaderSection(),
-                      SizedBox(height: 13), // 18 → 13
-                      _FeaturesSection(),
-                      SizedBox(height: 17), // 24 → 17
-                      Expanded(child: _PlansSection()),
-                      SizedBox(height: 10), // 14 → 10
-                      _PaymentInfoText(),
-                      SizedBox(height: 7), // 10 → 7
-                      _StartButton(),
-                      SizedBox(height: 10), // 14 → 10
-                      _BottomLinks(),
-                      SizedBox(height: 12), // 18 → 12
-                    ],
-                  ),
+          }
+
+          return Scaffold(
+            backgroundColor: Colors.white,
+            body: SafeArea(
+              child: Padding(
+                padding: EdgeInsets.symmetric(
+                  horizontal: 24.w,
+                  vertical: 11.h,
+                ),
+                child: Column(
+                  children: [
+                    SizedBox(height: 13.h),
+                    const _HeaderSection(),
+                    SizedBox(height: 13.h),
+                    const _FeaturesSection(),
+                    SizedBox(height: 17.h),
+                    const Expanded(child: _PlansSection()),
+                    SizedBox(height: 10.h),
+                    const _PaymentInfoText(),
+                    SizedBox(height: 7.h),
+                    const _StartButton(),
+                    SizedBox(height: 10.h),
+                    const _BottomLinks(),
+                    SizedBox(height: 12.h),
+                  ],
                 ),
               ),
-            );
-          }
+            ),
+          );
         },
       ),
     );
@@ -116,6 +110,7 @@ class PremiumPage extends StatelessWidget {
 
 class _HeaderSection extends StatelessWidget {
   const _HeaderSection();
+
   @override
   Widget build(BuildContext context) {
     return Column(
@@ -124,22 +119,28 @@ class _HeaderSection extends StatelessWidget {
           onPressed: () {
             final counterCubit = context.read<PremiumCounterCubit>();
             counterCubit.increment();
-
             if (counterCubit.state >= 8) {
-              counterCubit.reset(); // tekrar tıklayabilsin
+              counterCubit.reset();
               SecretDialog.showSecretDialog(context);
             }
           },
           splashColor: Colors.transparent,
           highlightColor: Colors.transparent,
           hoverColor: Colors.transparent,
-          icon: Icon(Icons.workspace_premium, color: Colors.orange, size: 80),
+          icon: Icon(
+            Icons.workspace_premium,
+            color: Colors.orange,
+            size: 80.sp,
+          ),
         ),
-        SizedBox(height: 6), // 8 → 6
+        SizedBox(height: 6.h),
         Text(
           "VIP ÜYELİKLER",
           style: TextStyle(
-              color: Colors.black, fontSize: 24, fontWeight: FontWeight.bold),
+            fontSize: 24.sp,
+            fontWeight: FontWeight.bold,
+            color: Colors.black,
+          ),
         ),
       ],
     );
@@ -150,12 +151,13 @@ class _HeaderSection extends StatelessWidget {
 
 class _FeaturesSection extends StatelessWidget {
   const _FeaturesSection();
+
   @override
   Widget build(BuildContext context) {
     return Column(
       children: const [
         _FeatureRow(icon: Icons.style, text: "Tüm desteleri oyna"),
-        SizedBox(height: 6), // 8 → 6
+        SizedBox(height: 6),
         _FeatureRow(icon: Icons.block, text: "Tüm reklamları kaldır"),
       ],
     );
@@ -165,17 +167,19 @@ class _FeaturesSection extends StatelessWidget {
 class _FeatureRow extends StatelessWidget {
   final IconData icon;
   final String text;
+
   const _FeatureRow({required this.icon, required this.text});
+
   @override
   Widget build(BuildContext context) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        Icon(icon, color: Colors.black, size: 24),
-        const SizedBox(width: 8),
-        Text(text, style: const TextStyle(color: Colors.black, fontSize: 18)),
-        const SizedBox(width: 10),
-        const Icon(Icons.check_circle, color: Colors.green, size: 24),
+        Icon(icon, size: 24.sp),
+        SizedBox(width: 8.w),
+        Text(text, style: TextStyle(fontSize: 18.sp)),
+        SizedBox(width: 10.w),
+        Icon(Icons.check_circle, color: Colors.green, size: 24.sp),
       ],
     );
   }
@@ -185,6 +189,7 @@ class _FeatureRow extends StatelessWidget {
 
 class _PlansSection extends StatelessWidget {
   const _PlansSection();
+
   String _getTitle(String productId) {
     switch (productId) {
       case 'weekly_premium':
@@ -221,6 +226,8 @@ class _PlansSection extends StatelessWidget {
                 price: products
                     .firstWhere((p) => p.productId == 'weekly_premium')
                     .price,
+                oldPrice: "TRY 40.00",
+                discountPercentage: "%25",
                 selected: selectedProductId == 'weekly_premium',
                 onTap: () {
                   if (!isPurchasing) {
@@ -235,6 +242,8 @@ class _PlansSection extends StatelessWidget {
                 price: products
                     .firstWhere((p) => p.productId == 'monthly_premium')
                     .price,
+                oldPrice: "TRY 100.00",
+                discountPercentage: "%40",
                 selected: selectedProductId == 'monthly_premium',
                 onTap: () {
                   if (!isPurchasing) {
@@ -249,6 +258,8 @@ class _PlansSection extends StatelessWidget {
                 price: products
                     .firstWhere((p) => p.productId == 'yearly_premium')
                     .price,
+                oldPrice: "TRY 900.00",
+                discountPercentage: "%50",
                 selected: selectedProductId == 'yearly_premium',
                 onTap: () {
                   if (!isPurchasing) {
@@ -267,69 +278,128 @@ class _PlansSection extends StatelessWidget {
   }
 }
 
+/* ---------------- PLAN TILE ---------------- */
+
 class PlanTile extends StatelessWidget {
   final String title;
   final String price;
+  final String oldPrice;
+  final String discountPercentage;
   final bool selected;
   final VoidCallback onTap;
+
   const PlanTile({
     super.key,
     required this.title,
     required this.price,
-    this.selected = false,
+    required this.oldPrice,
+    required this.discountPercentage,
     required this.onTap,
+    this.selected = false,
   });
+
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: onTap,
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 8), // 12 → 8
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: selected ? const Color(0xFFE3F2FD) : const Color(0xFFF5F5F5),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-              color: selected ? Colors.blue : Colors.grey.shade300, width: 2),
-        ),
-        child:
-            Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-          Text(
-            title,
-            style: TextStyle(
-                color: Colors.black,
-                fontSize: 18,
-                fontWeight: selected ? FontWeight.bold : FontWeight.w500),
+      child: Stack(
+        children: [
+          Container(
+            margin: EdgeInsets.only(bottom: 8.h),
+            padding: EdgeInsets.all(16.w),
+            decoration: BoxDecoration(
+              color:
+                  selected ? const Color(0xFFE3F2FD) : const Color(0xFFF5F5F5),
+              borderRadius: BorderRadius.circular(14.r),
+              border: Border.all(
+                color: selected ? Colors.orange : Colors.grey.shade300,
+                width: 2.w,
+              ),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  title,
+                  style: TextStyle(
+                    fontSize: 18.sp,
+                    fontWeight: selected ? FontWeight.bold : FontWeight.w600,
+                  ),
+                ),
+                Column(
+                  children: [
+                    SizedBox(height: 4.h),
+                    if (oldPrice.isNotEmpty)
+                      Text(
+                        oldPrice,
+                        style: TextStyle(
+                          fontSize: 14.sp,
+                          color: Colors.grey,
+                          decoration: TextDecoration.lineThrough,
+                        ),
+                      ),
+                    Text(
+                      price,
+                      style: TextStyle(
+                        fontSize: 18.sp,
+                        color: Colors.orange,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
-          Text(price,
-              style: const TextStyle(
-                  color: Colors.orange,
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold)),
-        ]),
+          if (discountPercentage.isNotEmpty)
+            Positioned(
+              top: 0,
+              right: 0,
+              child: Container(
+                padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
+                decoration: BoxDecoration(
+                  color: Colors.red,
+                  borderRadius: BorderRadius.only(
+                    topRight: Radius.circular(14.r),
+                    bottomLeft: Radius.circular(14.r),
+                  ),
+                ),
+                child: Text(
+                  discountPercentage,
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 12.sp,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ),
+        ],
       ),
     );
   }
 }
 
-/* ---------------- PAYMENT INFO TEXT ---------------- */
+/* ---------------- PAYMENT INFO ---------------- */
 
 class _PaymentInfoText extends StatelessWidget {
   const _PaymentInfoText();
+
   @override
   Widget build(BuildContext context) {
-    return const Text(
+    return Text(
       "  Satın alma onayından sonra ödeme hesabınızdan tahsil edilir. Abonelik, dönem sonunda otomatik olarak yenilenir; yenilemeyi istediğiniz zaman iptal edebilirsiniz.",
       textAlign: TextAlign.center,
-      style: TextStyle(color: Colors.black87, fontSize: 14),
+      style: TextStyle(fontSize: 14.sp),
     );
   }
 }
 
-/* ---------------- START BUTTON ---------------- */
+/* ---------------- BUTTON ---------------- */
 
 class _StartButton extends StatefulWidget {
   const _StartButton();
+
   @override
   State<_StartButton> createState() => _StartButtonState();
 }
@@ -337,15 +407,16 @@ class _StartButton extends StatefulWidget {
 class _StartButtonState extends State<_StartButton>
     with SingleTickerProviderStateMixin {
   late AnimationController _pulse;
+
   @override
   void initState() {
     super.initState();
     _pulse = AnimationController(
-        vsync: this,
-        duration: const Duration(seconds: 1),
-        lowerBound: 0.95,
-        upperBound: 1.05)
-      ..repeat(reverse: true);
+      vsync: this,
+      duration: const Duration(seconds: 1),
+      lowerBound: 0.95,
+      upperBound: 1.05,
+    )..repeat(reverse: true);
   }
 
   @override
@@ -359,11 +430,12 @@ class _StartButtonState extends State<_StartButton>
     return BlocBuilder<PurchaseCubit, PurchaseState>(
       builder: (context, state) {
         final isLoading = state is PurchaseInProgress;
+
         return AnimatedBuilder(
           animation: _pulse,
           builder: (context, child) {
             return Transform.scale(
-              scale: isLoading ? 1.0 : _pulse.value,
+              scale: isLoading ? 1 : _pulse.value,
               child: SizedBox(
                 width: MediaQuery.of(context).size.width * 0.60,
                 child: ElevatedButton(
@@ -380,22 +452,28 @@ class _StartButtonState extends State<_StartButton>
                         },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.green,
+                    padding: EdgeInsets.symmetric(vertical: 16.h),
                     shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12)),
-                    padding: const EdgeInsets.symmetric(vertical: 16),
+                      borderRadius: BorderRadius.circular(12.r),
+                    ),
                   ),
                   child: isLoading
-                      ? const SizedBox(
-                          height: 24,
-                          width: 24,
-                          child: CircularProgressIndicator(
-                              color: Colors.white, strokeWidth: 3),
+                      ? SizedBox(
+                          height: 24.sp,
+                          width: 24.sp,
+                          child: const CircularProgressIndicator(
+                            color: Colors.white,
+                            strokeWidth: 3,
+                          ),
                         )
-                      : const Text("Şimdi Başla",
+                      : Text(
+                          "Şimdi Başla",
                           style: TextStyle(
-                              fontSize: 20,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.white)),
+                            fontSize: 20.sp,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
+                        ),
                 ),
               ),
             );
@@ -410,36 +488,43 @@ class _StartButtonState extends State<_StartButton>
 
 class _BottomLinks extends StatelessWidget {
   const _BottomLinks();
+
   @override
   Widget build(BuildContext context) {
-    return Column(children: const [_PolicyLinks()]);
+    return const _PolicyLinks();
   }
 }
 
 class _PolicyLinks extends StatelessWidget {
   const _PolicyLinks();
+
   @override
   Widget build(BuildContext context) {
-    return Row(mainAxisAlignment: MainAxisAlignment.center, children: const [
-      _LinkText(
-        text: "Gizlilik Politikası",
-        url:
-            "https://docs.google.com/document/d/1G6uFDjzhF0GtXdVZeABFYKrQEsTZ-ZRhXvSzqsLGJqY/edit?usp=sharing",
-      ),
-      SizedBox(width: 20),
-      _LinkText(
-        text: "Kullanım Şartları",
-        url:
-            "https://docs.google.com/document/d/1IYbsnY3x3O1CeM2XHA_nRe97OuJXK_QP9up2aGOw_c0/edit?usp=sharing",
-      ),
-    ]);
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: const [
+        _LinkText(
+          text: "Gizlilik Politikası",
+          url:
+              "https://docs.google.com/document/d/1G6uFDjzhF0GtXdVZeABFYKrQEsTZ-ZRhXvSzqsLGJqY/edit?usp=sharing",
+        ),
+        SizedBox(width: 20),
+        _LinkText(
+          text: "Kullanım Şartları",
+          url:
+              "https://docs.google.com/document/d/1IYbsnY3x3O1CeM2XHA_nRe97OuJXK_QP9up2aGOw_c0/edit?usp=sharing",
+        ),
+      ],
+    );
   }
 }
 
 class _LinkText extends StatelessWidget {
   final String text;
   final String url;
+
   const _LinkText({required this.text, required this.url});
+
   Future<void> _openLink() async {
     final uri = Uri.parse(url);
     if (await canLaunchUrl(uri)) {
@@ -451,9 +536,14 @@ class _LinkText extends StatelessWidget {
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: _openLink,
-      child: Text(text,
-          style: const TextStyle(
-              color: Colors.blue, decoration: TextDecoration.underline)),
+      child: Text(
+        text,
+        style: TextStyle(
+          fontSize: 14.sp,
+          color: Colors.blue,
+          decoration: TextDecoration.underline,
+        ),
+      ),
     );
   }
 }

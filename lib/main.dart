@@ -17,6 +17,7 @@ import 'package:ben_kimim/presentation/game/bloc/score_cubit.dart';
 import 'package:ben_kimim/presentation/game/bloc/timer_cubit.dart';
 import 'package:ben_kimim/presentation/game_result/bloc/result_cubit.dart';
 import 'package:ben_kimim/presentation/no_internet/bloc/internet_connection_cubit.dart';
+import 'package:ben_kimim/presentation/premium/bloc/ads_counter_cubit.dart';
 import 'package:ben_kimim/presentation/premium/bloc/is_user_premium_cubit.dart';
 import 'package:ben_kimim/presentation/premium/bloc/premium_status_cubit.dart';
 import 'package:ben_kimim/presentation/premium/bloc/purchase_cubit.dart';
@@ -90,6 +91,7 @@ class MyApp extends StatelessWidget {
             BlocProvider(create: (context) => BottomNavCubit()),
             BlocProvider(create: (context) => InternetConnectionCubit()),
             BlocProvider(create: (context) => PurchaseCubit()),
+            BlocProvider(create: (context) => AdsCounterCubit()),
           ],
           child: MaterialApp(
             debugShowCheckedModeBanner: false,
