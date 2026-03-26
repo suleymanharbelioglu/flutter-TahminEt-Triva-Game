@@ -19,6 +19,8 @@ import 'package:url_launcher/url_launcher.dart';
 class PremiumPage extends StatelessWidget {
   const PremiumPage({super.key});
 
+  String _normalizeId(String productId) => productId.split(':').first;
+
   @override
   Widget build(BuildContext context) {
     return MultiBlocProvider(
@@ -43,7 +45,9 @@ class PremiumPage extends StatelessWidget {
               if (productsState is LoadProductsSuccess &&
                   productsState.products.isNotEmpty) {
                 product = productsState.products.firstWhere(
-                  (p) => p.productId == state.purchase.productId,
+                  (p) =>
+                      _normalizeId(p.productId) ==
+                      _normalizeId(state.purchase.productId),
                   orElse: () => productsState.products.first,
                 );
               } else {
@@ -190,8 +194,16 @@ class _FeatureRow extends StatelessWidget {
 class _PlansSection extends StatelessWidget {
   const _PlansSection();
 
+  String _normalizeId(String productId) => productId.split(':').first;
+
+  ProductModel _findProduct(List<ProductModel> products, String baseProductId) {
+    return products.firstWhere(
+      (p) => _normalizeId(p.productId) == baseProductId,
+    );
+  }
+
   String _getTitle(String productId) {
-    switch (productId) {
+    switch (_normalizeId(productId)) {
       case 'weekly_premium':
         return 'Haftalık Üyelik';
       case 'monthly_premium':
@@ -201,6 +213,19 @@ class _PlansSection extends StatelessWidget {
       default:
         return '';
     }
+  }
+
+  String _discountBadge({
+    required ProductModel current,
+    required double referenceRawPrice,
+  }) {
+    if (referenceRawPrice <= 0 || current.rawPrice <= 0) return '';
+    if (referenceRawPrice <= current.rawPrice) return '';
+
+    final ratio = 1 - (current.rawPrice / referenceRawPrice);
+    final percent = (ratio * 100).round();
+    if (percent < 5) return '';
+    return '%$percent';
   }
 
   @override
@@ -219,53 +244,62 @@ class _PlansSection extends StatelessWidget {
           final isPurchasing =
               context.watch<PurchaseCubit>().state is PurchaseInProgress;
 
+          final weekly = _findProduct(products, 'weekly_premium');
+          final monthly = _findProduct(products, 'monthly_premium');
+          final yearly = _findProduct(products, 'yearly_premium');
+
+          // İndirim yüzdeleri: ülke/para birimine göre mağazanın verdiği ham fiyatlarla hesaplanır.
+          final weeklyDiscount = _discountBadge(
+            current: weekly,
+            referenceRawPrice: monthly.rawPrice / 4,
+          );
+          final monthlyDiscount = _discountBadge(
+            current: monthly,
+            referenceRawPrice: weekly.rawPrice * 4,
+          );
+          final yearlyDiscount = _discountBadge(
+            current: yearly,
+            referenceRawPrice: monthly.rawPrice * 12,
+          );
+
           return ListView(
             children: [
               PlanTile(
-                title: _getTitle('weekly_premium'),
-                price: products
-                    .firstWhere((p) => p.productId == 'weekly_premium')
-                    .price,
-                oldPrice: "TRY 40.00",
-                discountPercentage: "%25",
-                selected: selectedProductId == 'weekly_premium',
+                title: _getTitle(weekly.productId),
+                price: weekly.price,
+                discountPercentage: weeklyDiscount,
+                selected: selectedProductId == weekly.productId,
                 onTap: () {
                   if (!isPurchasing) {
                     context
                         .read<SelectedPlanCubit>()
-                        .selectPlan('weekly_premium');
+                        .selectPlan(weekly.productId);
                   }
                 },
               ),
               PlanTile(
-                title: _getTitle('monthly_premium'),
-                price: products
-                    .firstWhere((p) => p.productId == 'monthly_premium')
-                    .price,
-                oldPrice: "TRY 100.00",
-                discountPercentage: "%40",
-                selected: selectedProductId == 'monthly_premium',
+                title: _getTitle(monthly.productId),
+                price: monthly.price,
+                discountPercentage: monthlyDiscount,
+                selected: selectedProductId == monthly.productId,
                 onTap: () {
                   if (!isPurchasing) {
                     context
                         .read<SelectedPlanCubit>()
-                        .selectPlan('monthly_premium');
+                        .selectPlan(monthly.productId);
                   }
                 },
               ),
               PlanTile(
-                title: _getTitle('yearly_premium'),
-                price: products
-                    .firstWhere((p) => p.productId == 'yearly_premium')
-                    .price,
-                oldPrice: "TRY 900.00",
-                discountPercentage: "%50",
-                selected: selectedProductId == 'yearly_premium',
+                title: _getTitle(yearly.productId),
+                price: yearly.price,
+                discountPercentage: yearlyDiscount,
+                selected: selectedProductId == yearly.productId,
                 onTap: () {
                   if (!isPurchasing) {
                     context
                         .read<SelectedPlanCubit>()
-                        .selectPlan('yearly_premium');
+                        .selectPlan(yearly.productId);
                   }
                 },
               ),
@@ -283,7 +317,6 @@ class _PlansSection extends StatelessWidget {
 class PlanTile extends StatelessWidget {
   final String title;
   final String price;
-  final String oldPrice;
   final String discountPercentage;
   final bool selected;
   final VoidCallback onTap;
@@ -292,7 +325,6 @@ class PlanTile extends StatelessWidget {
     super.key,
     required this.title,
     required this.price,
-    required this.oldPrice,
     required this.discountPercentage,
     required this.onTap,
     this.selected = false,
@@ -329,15 +361,6 @@ class PlanTile extends StatelessWidget {
                 Column(
                   children: [
                     SizedBox(height: 4.h),
-                    if (oldPrice.isNotEmpty)
-                      Text(
-                        oldPrice,
-                        style: TextStyle(
-                          fontSize: 14.sp,
-                          color: Colors.grey,
-                          decoration: TextDecoration.lineThrough,
-                        ),
-                      ),
                     Text(
                       price,
                       style: TextStyle(

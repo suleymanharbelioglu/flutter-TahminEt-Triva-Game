@@ -1,7 +1,10 @@
 import 'package:ben_kimim/data/app_purchase/model/product_model.dart';
 import 'package:ben_kimim/data/app_purchase/model/purchase_model.dart';
+import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:purchases_flutter/purchases_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class PremiumInfoPage extends StatelessWidget {
@@ -16,6 +19,11 @@ class PremiumInfoPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (kDebugMode) {
+      debugPrint(
+        'PremiumInfoPage: purchaseId=${purchase.productId} productId=${product?.productId} productPrice=${product?.price} platform=${Platform.operatingSystem}',
+      );
+    }
     return Scaffold(
       body: Container(
         decoration: _buildBackgroundGradient(),
@@ -39,6 +47,8 @@ class PremiumInfoPage extends StatelessWidget {
       ),
     );
   }
+
+  String _normalizeId(String productId) => productId.split(':').first;
 
   // -----------------------------------------------------------
   // BACKGROUND GRADIENT
@@ -98,29 +108,62 @@ class PremiumInfoPage extends StatelessWidget {
           ),
         ],
       ),
-      child: Text(
-        _getPriceText(purchase.productId),
-        style: TextStyle(
-          fontSize: 18.sp,
-          fontWeight: FontWeight.w800,
-          color: Colors.black87,
-        ),
+      child: FutureBuilder<String>(
+        future: _resolvePriceText(purchase.productId),
+        builder: (context, snapshot) {
+          final text = snapshot.connectionState == ConnectionState.waiting
+              ? '...'
+              : (snapshot.data ?? '—');
+          return Text(
+            text,
+            style: TextStyle(
+              fontSize: 18.sp,
+              fontWeight: FontWeight.w800,
+              color: Colors.black87,
+            ),
+          );
+        },
       ),
     );
   }
 
-  String _getPriceText(String productId) {
-    switch (productId) {
-      case 'weekly_premium':
-        return "TRY 40.00";
-      case 'monthly_premium':
-        return "TRY 100.00";
-      case 'yearly_premium':
-        return "TRY 600.00";
-      case 'test_premium':
-        return "TRY 0.00";
-      default:
-        return "TRY —";
+  Future<String> _resolvePriceText(String productId) async {
+    String canonicalBaseId(String base) {
+      switch (base) {
+        case 'weekly':
+          return 'weekly_premium';
+        case 'monthly':
+          return 'monthly_premium';
+        case 'yearly':
+          return 'yearly_premium';
+        default:
+          return base;
+      }
+    }
+
+    final p = product;
+    if (p != null && _normalizeId(p.productId) == _normalizeId(productId)) {
+      return p.price;
+    }
+
+    // Fallback: PremiumInfoPage'e product null gelebiliyor (LoadProducts henüz dolmadan).
+    // Bu durumda RevenueCat offering içinden aynı baseId'li ürünü bulup fiyatı gösteriyoruz.
+    try {
+      final offerings = await Purchases.getOfferings();
+      final offering = offerings.current;
+      if (offering == null) return '—';
+
+      final base = canonicalBaseId(_normalizeId(productId));
+      final match = offering.availablePackages
+          .map((p) => p.storeProduct)
+          .firstWhere(
+            (sp) => _normalizeId(sp.identifier) == base,
+            orElse: () => offering.availablePackages.first.storeProduct,
+          );
+      return match.priceString;
+    } catch (_) {
+      if (_normalizeId(productId) == 'test_premium') return '₺0,00';
+      return '—';
     }
   }
 
@@ -143,7 +186,7 @@ class PremiumInfoPage extends StatelessWidget {
           SizedBox(height: 25.h),
           _infoBulletInfo(_getRenewText(purchase.productId)),
           SizedBox(height: 15.h),
-          _buildGooglePlayLink(),
+          _buildManageSubscriptionLink(),
           SizedBox(height: 20.h),
         ],
       ),
@@ -228,9 +271,9 @@ class PremiumInfoPage extends StatelessWidget {
     );
   }
 
-  Widget _buildGooglePlayLink() {
+  Widget _buildManageSubscriptionLink() {
     return GestureDetector(
-      onTap: _openGooglePlaySubscriptions,
+      onTap: _openManageSubscriptions,
       child: Row(
         children: [
           Icon(Icons.info, color: Colors.blue.shade400, size: 22.sp),
@@ -246,7 +289,7 @@ class PremiumInfoPage extends StatelessWidget {
                 children: const [
                   TextSpan(text: "Üyelik işlemlerini "),
                   TextSpan(
-                    text: "Google Play Üyelikler",
+                    text: "Üyelik yönetimi",
                     style: TextStyle(
                       decoration: TextDecoration.underline,
                       color: Colors.blue,
@@ -262,9 +305,10 @@ class PremiumInfoPage extends StatelessWidget {
     );
   }
 
-  void _openGooglePlaySubscriptions() async {
-    final Uri url =
-        Uri.parse("https://play.google.com/store/account/subscriptions");
+  void _openManageSubscriptions() async {
+    final Uri url = Platform.isIOS
+        ? Uri.parse("https://apps.apple.com/account/subscriptions")
+        : Uri.parse("https://play.google.com/store/account/subscriptions");
     if (await canLaunchUrl(url)) {
       await launchUrl(url, mode: LaunchMode.externalApplication);
     }
@@ -282,7 +326,7 @@ class PremiumInfoPage extends StatelessWidget {
   }
 
   String _getTitle(String productId) {
-    switch (productId) {
+    switch (_normalizeId(productId)) {
       case 'weekly_premium':
         return 'Haftalık Üyelik';
       case 'monthly_premium':
@@ -295,7 +339,7 @@ class PremiumInfoPage extends StatelessWidget {
   }
 
   String _getRenewText(String productId) {
-    switch (productId) {
+    switch (_normalizeId(productId)) {
       case 'weekly_premium':
         return "Üyeliğiniz iptal edilmediği sürece haftalık olarak yenilenir.";
       case 'monthly_premium':

@@ -1,5 +1,6 @@
 import 'dart:math';
 import 'package:ben_kimim/common/navigator/app_navigator.dart';
+import 'package:ben_kimim/core/configs/ads/admob_ids.dart';
 import 'package:ben_kimim/core/configs/theme/app_color.dart';
 import 'package:ben_kimim/presentation/bottom_nav/bloc/bottom_nav_cubit.dart';
 import 'package:ben_kimim/presentation/game/bloc/display_current_card_list_cubit.dart';
@@ -43,8 +44,11 @@ class _DeckFlipState extends State<DeckFlip>
   }
 
   void _loadInterstitial() {
+    final adUnitId = AdMobIds.gameStartInterstitial;
+    if (adUnitId.isEmpty) return;
+
     InterstitialAd.load(
-      adUnitId: 'ca-app-pub-6970688308215711/3866393700', // Test ID
+      adUnitId: adUnitId,
       request: const AdRequest(),
       adLoadCallback: InterstitialAdLoadCallback(
         onAdLoaded: (ad) {

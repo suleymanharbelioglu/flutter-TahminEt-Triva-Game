@@ -1,4 +1,4 @@
-import 'package:in_app_purchase/in_app_purchase.dart';
+import 'package:purchases_flutter/purchases_flutter.dart';
 
 /// PURCHASE MODEL
 /// Kullanıcının satın aldığı ürünün bilgilerini tutar.
@@ -25,21 +25,38 @@ class PurchaseModel {
     required this.isSubscription,
   });
 
-  /// PurchaseDetails → PurchaseModel dönüşümü
-  factory PurchaseModel.fromPurchaseDetails(dynamic purchase) {
+  /// RevenueCat CustomerInfo → PurchaseModel dönüşümü (özet model).
+  ///
+  /// Not: RevenueCat’te doğrulama/aktiflik backend tarafından yönetilir.
+  factory PurchaseModel.fromCustomerInfo(CustomerInfo info) {
+    String baseId(String id) => id.split(':').first;
+
+    // RevenueCat `activeSubscriptions` sırası garanti değil; UI'da tutarlı bir plan
+    // göstermek için öncelik belirliyoruz.
+    final activeBaseIds = info.activeSubscriptions.map(baseId).toSet();
+    const priority = <String>[
+      // Production product ids
+      'yearly_premium',
+      'monthly_premium',
+      'weekly_premium',
+      // Test Store product ids (RevenueCat test store)
+      'yearly',
+      'monthly',
+      'weekly',
+    ];
+
+    final chosenBaseId = priority.firstWhere(
+      activeBaseIds.contains,
+      orElse: () => activeBaseIds.isNotEmpty ? activeBaseIds.first : '',
+    );
+
+    // RevenueCat purchaseDate bilgisi her platformda farklı alanlarda olabilir.
+    // En güvenlisi: model oluşturulduğu anı kullanıp UI’yı beslemek.
     return PurchaseModel(
-      productId: purchase.productID,
-      isActive: purchase.status == PurchaseStatus.purchased ||
-          purchase.status == PurchaseStatus.restored,
-
-      /// Google'dan timestamp ms cinsinden gelir
-      purchaseDate: DateTime.fromMillisecondsSinceEpoch(
-        int.tryParse(purchase.transactionDate ?? "0") ?? 0,
-      ),
-
-      /// Abonelik olup olmadığını anlamak için (play billing destekliyor)
-      isSubscription: purchase.productID.contains("premium") ||
-          purchase.verificationData.localVerificationData.contains("SUBS"),
+      productId: chosenBaseId,
+      isActive: activeBaseIds.isNotEmpty,
+      purchaseDate: DateTime.now(),
+      isSubscription: true,
     );
   }
 }

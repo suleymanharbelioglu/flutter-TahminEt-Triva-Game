@@ -1,5 +1,6 @@
 import 'package:ben_kimim/presentation/all_decks/pages/all_decks.dart';
 import 'package:ben_kimim/presentation/bottom_nav/bloc/bottom_nav_cubit.dart';
+import 'package:ben_kimim/core/configs/ads/admob_ids.dart';
 import 'package:ben_kimim/presentation/how_to_play/page/how_to_play.dart';
 import 'package:ben_kimim/presentation/no_internet/bloc/internet_connection_state.dart';
 import 'package:ben_kimim/presentation/no_internet/page/no_internet.dart';
@@ -21,15 +22,24 @@ class BottomNavPage extends StatefulWidget {
 }
 
 class _BottomNavPageState extends State<BottomNavPage> {
+  late final PageController _pageController;
+
   @override
   void initState() {
     super.initState();
+    _pageController = PageController(initialPage: context.read<BottomNavCubit>().state);
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       SystemChrome.setPreferredOrientations([
         DeviceOrientation.portraitUp,
       ]);
     });
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
   }
 
   @override
@@ -60,11 +70,9 @@ class _BottomNavPageState extends State<BottomNavPage> {
       },
       child: BlocBuilder<BottomNavCubit, int>(
         builder: (context, currentIndex) {
-          final pageController = PageController(initialPage: currentIndex);
-
           return BlocListener<BottomNavCubit, int>(
             listener: (context, index) {
-              pageController.animateToPage(
+              _pageController.animateToPage(
                 index,
                 duration: const Duration(milliseconds: 300),
                 curve: Curves.easeInOut,
@@ -72,7 +80,7 @@ class _BottomNavPageState extends State<BottomNavPage> {
             },
             child: Scaffold(
               body: PageView(
-                controller: pageController,
+                controller: _pageController,
                 physics: const NeverScrollableScrollPhysics(),
                 children: pages,
               ),
@@ -162,7 +170,7 @@ class _BannerContainerState extends State<BannerContainer> {
     setState(() => _adSize = size);
 
     _bannerAd = BannerAd(
-      adUnitId: 'ca-app-pub-6970688308215711/7606026846',
+      adUnitId: AdMobIds.homePageBanner,
       size: size,
       request: const AdRequest(),
       listener: BannerAdListener(

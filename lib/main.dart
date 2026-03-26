@@ -1,4 +1,5 @@
 import 'package:ben_kimim/core/configs/theme/app_theme.dart';
+import 'package:ben_kimim/core/configs/revenuecat/revenuecat_config.dart';
 import 'package:ben_kimim/presentation/all_decks/bloc/bilim_ve_genelk_decks_cubit.dart';
 import 'package:ben_kimim/presentation/all_decks/bloc/canlandir_decks_cubit.dart';
 import 'package:ben_kimim/presentation/all_decks/bloc/ciz_decks_cubit.dart';
@@ -30,11 +31,26 @@ import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
+import 'package:purchases_flutter/purchases_flutter.dart';
+import 'package:flutter/foundation.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await MobileAds.instance.initialize(); // AdMob başlat
-  // ✅ TEST DEVICE ID EKLE
+
+  // RevenueCat init (API key'ler dart-define ile verilir)
+  if (RevenueCatConfig.isConfigured) {
+    if (kDebugMode) {
+      await Purchases.setLogLevel(LogLevel.debug);
+      final key = RevenueCatConfig.apiKey;
+      final prefix = key.length >= 5 ? key.substring(0, 5) : key;
+      debugPrint(
+        'RevenueCat configure: keyPrefix=$prefix keyLen=${key.length} platform=$defaultTargetPlatform',
+      );
+    }
+    await Purchases.configure(
+      PurchasesConfiguration(RevenueCatConfig.apiKey)..appUserID = null,
+    );
+  }
 
   await SystemChrome.setPreferredOrientations([
     DeviceOrientation.portraitUp, // varsayılan dikey
@@ -43,6 +59,10 @@ Future<void> main() async {
   await initializeDependencies();
 
   runApp(const MyApp());
+
+  // AdMob (iOS'ta Info.plist içinde GADApplicationIdentifier gerekir).
+  // UI'yı bloklamaması için runApp'ten sonra başlatıyoruz.
+  MobileAds.instance.initialize();
 }
 
 class MyApp extends StatelessWidget {
@@ -50,8 +70,6 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    print("Width: ${MediaQuery.of(context).size.width}");
-    print("Height: ${MediaQuery.of(context).size.height}");
     return ScreenUtilInit(
       designSize: const Size(392, 825),
       minTextAdapt: true,

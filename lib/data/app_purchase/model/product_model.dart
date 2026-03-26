@@ -1,4 +1,4 @@
-import 'package:in_app_purchase/in_app_purchase.dart';
+import 'package:purchases_flutter/purchases_flutter.dart';
 
 /// PRODUCT MODEL
 /// Google Play’den gelen ürün listesini UI’da göstermek için kullanırsın.
@@ -28,13 +28,13 @@ class ProductModel {
     required this.rawPrice,
   });
 
-  factory ProductModel.fromProductDetails(ProductDetails details) {
+  factory ProductModel.fromStoreProduct(StoreProduct product) {
     return ProductModel(
-      productId: details.id,
-      title: details.title,
-      description: details.description,
-      price: details.price,
-      rawPrice: details.rawPrice, // ✔ direkt al
+      productId: product.identifier,
+      title: product.title,
+      description: product.description,
+      price: product.priceString,
+      rawPrice: product.price,
     );
   }
 }

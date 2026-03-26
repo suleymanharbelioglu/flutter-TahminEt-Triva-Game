@@ -1,4 +1,5 @@
 import 'package:ben_kimim/common/navigator/app_navigator.dart';
+import 'package:ben_kimim/core/configs/ads/admob_ids.dart';
 import 'package:ben_kimim/core/configs/theme/app_color.dart';
 import 'package:ben_kimim/data/card/model/card_result.dart';
 import 'package:ben_kimim/presentation/bottom_nav/page/bottom_nav.dart';
@@ -11,6 +12,7 @@ import 'package:ben_kimim/presentation/no_internet/bloc/internet_connection_cubi
 import 'package:ben_kimim/presentation/no_internet/bloc/internet_connection_state.dart';
 import 'package:ben_kimim/presentation/premium/bloc/ads_counter_cubit.dart';
 import 'package:ben_kimim/presentation/premium/bloc/is_user_premium_cubit.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -40,10 +42,14 @@ class _GameResultPageState extends State<GameResultPage> {
 
     _scrollController.addListener(_onScroll);
 
-    // Test cihazı ekle
-    MobileAds.instance.updateRequestConfiguration(
-      RequestConfiguration(testDeviceIds: ["D09DE3465F0FF17A7C7AA0997E40DFCA"]),
-    );
+    if (kDebugMode) {
+      // Debug modda test cihazı
+      MobileAds.instance.updateRequestConfiguration(
+        RequestConfiguration(
+          testDeviceIds: ["D09DE3465F0FF17A7C7AA0997E40DFCA"],
+        ),
+      );
+    }
 
     // Interstitial yükle
     WidgetsBinding.instance.addPostFrameCallback((_) => _loadInterstitial());
@@ -71,9 +77,11 @@ class _GameResultPageState extends State<GameResultPage> {
 
   void _loadInterstitial() {
     if (context.read<IsUserPremiumCubit>().state) return;
+    final adUnitId = AdMobIds.playAgainInterstitial;
+    if (adUnitId.isEmpty) return;
 
     InterstitialAd.load(
-      adUnitId: 'ca-app-pub-6970688308215711/5433027759', // Test ID
+      adUnitId: adUnitId,
       request: const AdRequest(),
       adLoadCallback: InterstitialAdLoadCallback(
         onAdLoaded: (ad) {
@@ -337,9 +345,6 @@ class _BannerContainerState extends State<BannerContainer> {
 // Küçük olanı al
     final int width =
         (screenWidth < screenHeight ? screenWidth : screenHeight).toInt();
-    print("wdith ---------------------------------------");
-    print(width);
-
     // 🔥 getAnchoredAdaptiveBannerAdSize entegrasyonu
     AdSize? size = await AdSize.getAnchoredAdaptiveBannerAdSize(
       Orientation.portrait, // Çünkü uygulaman portrait locked
@@ -347,12 +352,11 @@ class _BannerContainerState extends State<BannerContainer> {
     );
 
     if (size == null) {
-      print("Adaptive banner size is NULL → Skipping load");
       return;
     }
 
     final BannerAd banner = BannerAd(
-      adUnitId: 'ca-app-pub-6970688308215711/4715714592',
+      adUnitId: AdMobIds.gameResultBanner,
       size: size,
       request: const AdRequest(),
       listener: BannerAdListener(
@@ -364,8 +368,6 @@ class _BannerContainerState extends State<BannerContainer> {
           });
         },
         onAdFailedToLoad: (ad, error) {
-          print(
-              "Banner failed: $error ****************************************");
           ad.dispose();
         },
       ),
@@ -385,7 +387,6 @@ class _BannerContainerState extends State<BannerContainer> {
     return BlocListener<InternetConnectionCubit, InternetConnectionState>(
       listener: (context, state) {
         if (state is InternetConnected) {
-          print("load banner *******************");
           _loadBanner();
         }
       },

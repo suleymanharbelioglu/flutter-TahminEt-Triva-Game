@@ -1,31 +1,59 @@
 import 'package:ben_kimim/data/app_purchase/model/product_model.dart';
-import 'package:ben_kimim/domain/app_purchase/repository/purchase_repository.dart';
 import 'package:ben_kimim/presentation/premium/bloc/load_products_state.dart';
-import 'package:ben_kimim/service_locator.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:dartz/dartz.dart';
+import 'package:purchases_flutter/purchases_flutter.dart';
 
 class LoadProductsCubit extends Cubit<LoadProductsState> {
   LoadProductsCubit() : super(LoadProductsInitial());
-  final productIds = [
+  static const _baseProductIds = <String>{
     'weekly_premium',
     'monthly_premium',
     'yearly_premium',
-  ];
+  };
+
+  String _baseId(String productId) => productId.split(':').first;
 
   /// Ürün ID listesi vererek ürünleri yükle
   Future<void> loadProducts() async {
     emit(LoadProductsLoading()); // Önce loading state
 
-    // Google Play servisinden ürünleri çek
-    Either<String, List<ProductModel>> result =
-        await sl<PurchaseRepository>().loadProducts(productIds);
+    try {
+      final offerings = await Purchases.getOfferings();
+      final offering = offerings.current;
 
-    result.fold(
-      (error) =>
-          emit(LoadProductsFailure(message: error)), // Hata varsa failure state
-      (products) => emit(
-          LoadProductsSuccess(products: products)), // Başarılıysa success state
-    );
+      if (offering == null) {
+        emit(
+          LoadProductsFailure(
+            message: 'RevenueCat offering bulunamadı (current null).',
+          ),
+        );
+        return;
+      }
+
+      final byBaseId = <String, ProductModel>{};
+      for (final p in offering.availablePackages.map((p) => p.storeProduct)) {
+        final base = _baseId(p.identifier);
+        if (_baseProductIds.contains(base)) {
+          byBaseId.putIfAbsent(base, () => ProductModel.fromStoreProduct(p));
+        }
+      }
+
+      final products = byBaseId.values.toList();
+
+      final missing = _baseProductIds.where((id) => !byBaseId.containsKey(id));
+      if (missing.isNotEmpty) {
+        emit(
+          LoadProductsFailure(
+            message:
+                'Bazı ürünler RevenueCat offering içinde yok: ${missing.join(', ')}',
+          ),
+        );
+        return;
+      }
+
+      emit(LoadProductsSuccess(products: products));
+    } catch (e) {
+      emit(LoadProductsFailure(message: 'Ürünler yüklenemedi: $e'));
+    }
   }
 }
