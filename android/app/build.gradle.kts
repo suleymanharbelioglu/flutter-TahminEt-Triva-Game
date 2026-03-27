@@ -4,9 +4,6 @@ plugins {
     id("kotlin-android")
     id("dev.flutter.flutter-gradle-plugin")
 }
-dependencies {
-    implementation("com.android.billingclient:billing-ktx:6.1.0")
-}
 
 
 val keystorePropertiesFile = rootProject.file("key.properties")

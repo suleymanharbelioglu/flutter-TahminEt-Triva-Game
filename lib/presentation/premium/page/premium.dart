@@ -11,7 +11,9 @@ import 'package:ben_kimim/presentation/premium/bloc/purchase_state.dart';
 import 'package:ben_kimim/presentation/premium/bloc/selected_plan_cubit.dart';
 import 'package:ben_kimim/presentation/premium/bloc/unlock_premium.dart';
 import 'package:ben_kimim/presentation/premium/page/premium_info.dart';
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -248,25 +250,44 @@ class _PlansSection extends StatelessWidget {
           final monthly = _findProduct(products, 'monthly_premium');
           final yearly = _findProduct(products, 'yearly_premium');
 
-          // İndirim yüzdeleri: ülke/para birimine göre mağazanın verdiği ham fiyatlarla hesaplanır.
-          final weeklyDiscount = _discountBadge(
-            current: weekly,
-            referenceRawPrice: monthly.rawPrice / 4,
-          );
-          final monthlyDiscount = _discountBadge(
-            current: monthly,
-            referenceRawPrice: weekly.rawPrice * 4,
-          );
-          final yearlyDiscount = _discountBadge(
-            current: yearly,
-            referenceRawPrice: monthly.rawPrice * 12,
-          );
+          final useIosOverrides = !kIsWeb && Platform.isIOS;
+          // iOS (App Store) tarafında fiyatlar farklı olabiliyor; UI'da sabit göster.
+          // Yüzdeleri kullanıcıya göre sabit kabul ediyoruz.
+          final weeklyPriceText = useIosOverrides ? 'TRY 30.00' : weekly.price;
+          final monthlyPriceText = useIosOverrides ? 'TRY 80.00' : monthly.price;
+          final yearlyPriceText = useIosOverrides ? 'TRY 600.00' : yearly.price;
+
+          // İndirim oranları (iOS): haftalık %25, aylık %40, yıllık %50
+          // Eski fiyat = yeni fiyat / (1 - indirimOranı)
+          final weeklyOldPriceText = useIosOverrides ? 'TRY 40.00' : null; // 30 / 0.75
+          final monthlyOldPriceText = useIosOverrides ? 'TRY 133.33' : null; // 80 / 0.60
+          final yearlyOldPriceText = useIosOverrides ? 'TRY 1200.00' : null;
+
+          final weeklyDiscount = useIosOverrides
+              ? '%25'
+              : _discountBadge(
+                  current: weekly,
+                  referenceRawPrice: monthly.rawPrice / 4,
+                );
+          final monthlyDiscount = useIosOverrides
+              ? '%40'
+              : _discountBadge(
+                  current: monthly,
+                  referenceRawPrice: weekly.rawPrice * 4,
+                );
+          final yearlyDiscount = useIosOverrides
+              ? '%50'
+              : _discountBadge(
+                  current: yearly,
+                  referenceRawPrice: monthly.rawPrice * 12,
+                );
 
           return ListView(
             children: [
               PlanTile(
                 title: _getTitle(weekly.productId),
-                price: weekly.price,
+                price: weeklyPriceText,
+                oldPrice: weeklyOldPriceText,
                 discountPercentage: weeklyDiscount,
                 selected: selectedProductId == weekly.productId,
                 onTap: () {
@@ -279,7 +300,8 @@ class _PlansSection extends StatelessWidget {
               ),
               PlanTile(
                 title: _getTitle(monthly.productId),
-                price: monthly.price,
+                price: monthlyPriceText,
+                oldPrice: monthlyOldPriceText,
                 discountPercentage: monthlyDiscount,
                 selected: selectedProductId == monthly.productId,
                 onTap: () {
@@ -292,7 +314,8 @@ class _PlansSection extends StatelessWidget {
               ),
               PlanTile(
                 title: _getTitle(yearly.productId),
-                price: yearly.price,
+                price: yearlyPriceText,
+                oldPrice: yearlyOldPriceText,
                 discountPercentage: yearlyDiscount,
                 selected: selectedProductId == yearly.productId,
                 onTap: () {
@@ -317,6 +340,7 @@ class _PlansSection extends StatelessWidget {
 class PlanTile extends StatelessWidget {
   final String title;
   final String price;
+  final String? oldPrice;
   final String discountPercentage;
   final bool selected;
   final VoidCallback onTap;
@@ -327,6 +351,7 @@ class PlanTile extends StatelessWidget {
     required this.price,
     required this.discountPercentage,
     required this.onTap,
+    this.oldPrice,
     this.selected = false,
   });
 
@@ -359,8 +384,19 @@ class PlanTile extends StatelessWidget {
                   ),
                 ),
                 Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
                     SizedBox(height: 4.h),
+                    if (oldPrice != null && oldPrice!.isNotEmpty)
+                      Text(
+                        oldPrice!,
+                        style: TextStyle(
+                          fontSize: 13.sp,
+                          color: Colors.grey.shade600,
+                          decoration: TextDecoration.lineThrough,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
                     Text(
                       price,
                       style: TextStyle(

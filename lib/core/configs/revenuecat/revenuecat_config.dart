@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:ben_kimim/core/configs/revenuecat/revenuecat_keys.dart';
+import 'package:flutter/foundation.dart';
 
 /// RevenueCat API keys — öncelik sırası:
 /// 1) `--dart-define` (CI / gizli build için)
@@ -17,15 +18,31 @@ class RevenueCatConfig {
 
   static String get apiKey {
     if (apiKeyAnyPlatform.isNotEmpty) return apiKeyAnyPlatform;
-    if (kRevenueCatTestApiKey.isNotEmpty) return kRevenueCatTestApiKey;
 
     if (Platform.isIOS) {
       if (iosApiKeyEnv.isNotEmpty) return iosApiKeyEnv;
-      return kRevenueCatIosPublicKey;
+      if (kRevenueCatIosPublicKey.isNotEmpty) return kRevenueCatIosPublicKey;
+      if (kDebugMode && kRevenueCatTestApiKey.isNotEmpty) {
+        return kRevenueCatTestApiKey;
+      }
+      return '';
     }
 
-    if (androidApiKeyEnv.isNotEmpty) return androidApiKeyEnv;
-    return kRevenueCatAndroidPublicKey;
+    if (Platform.isAndroid) {
+      if (androidApiKeyEnv.isNotEmpty) return androidApiKeyEnv;
+      if (kRevenueCatAndroidPublicKey.isNotEmpty) {
+        return kRevenueCatAndroidPublicKey;
+      }
+      if (kDebugMode && kRevenueCatTestApiKey.isNotEmpty) {
+        return kRevenueCatTestApiKey;
+      }
+      return '';
+    }
+
+    if (kDebugMode && kRevenueCatTestApiKey.isNotEmpty) {
+      return kRevenueCatTestApiKey;
+    }
+    return '';
   }
 
   static bool get isConfigured => apiKey.isNotEmpty;

@@ -28,7 +28,10 @@ class PurchaseModel {
   /// RevenueCat CustomerInfo → PurchaseModel dönüşümü (özet model).
   ///
   /// Not: RevenueCat’te doğrulama/aktiflik backend tarafından yönetilir.
-  factory PurchaseModel.fromCustomerInfo(CustomerInfo info) {
+  factory PurchaseModel.fromCustomerInfo(
+    CustomerInfo info, {
+    bool? isActiveOverride,
+  }) {
     String baseId(String id) => id.split(':').first;
 
     // RevenueCat `activeSubscriptions` sırası garanti değil; UI'da tutarlı bir plan
@@ -52,9 +55,10 @@ class PurchaseModel {
 
     // RevenueCat purchaseDate bilgisi her platformda farklı alanlarda olabilir.
     // En güvenlisi: model oluşturulduğu anı kullanıp UI’yı beslemek.
+    final isActive = isActiveOverride ?? activeBaseIds.isNotEmpty;
     return PurchaseModel(
-      productId: chosenBaseId,
-      isActive: activeBaseIds.isNotEmpty,
+      productId: isActive ? chosenBaseId : '',
+      isActive: isActive,
       purchaseDate: DateTime.now(),
       isSubscription: true,
     );

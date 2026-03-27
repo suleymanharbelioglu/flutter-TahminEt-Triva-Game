@@ -9,6 +9,8 @@ class PremiumStatusCubit extends Cubit<PremiumStatusState> {
     checkPremiumStatus();
   }
 
+  static const _preferredEntitlementIds = {'VIP', 'premium'};
+
   void Function(CustomerInfo)? _listener;
 
   Future<void> checkPremiumStatus() async {
@@ -33,7 +35,16 @@ class PremiumStatusCubit extends Cubit<PremiumStatusState> {
   }
 
   void _emitFromCustomerInfo(CustomerInfo info) {
-    final model = PurchaseModel.fromCustomerInfo(info);
+    final hasActiveEntitlement = _preferredEntitlementIds.any(
+      (id) => info.entitlements.active.containsKey(id),
+    );
+    final fallbackHasAnyEntitlement = info.entitlements.active.isNotEmpty;
+    final isActive = hasActiveEntitlement || fallbackHasAnyEntitlement;
+
+    final model = PurchaseModel.fromCustomerInfo(
+      info,
+      isActiveOverride: isActive,
+    );
     if (model.isActive) {
       emit(PremiumActive(model));
     } else {

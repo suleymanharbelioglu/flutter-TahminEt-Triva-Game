@@ -154,12 +154,11 @@ class PremiumInfoPage extends StatelessWidget {
       if (offering == null) return '—';
 
       final base = canonicalBaseId(_normalizeId(productId));
-      final match = offering.availablePackages
-          .map((p) => p.storeProduct)
-          .firstWhere(
-            (sp) => _normalizeId(sp.identifier) == base,
-            orElse: () => offering.availablePackages.first.storeProduct,
-          );
+      final match =
+          offering.availablePackages.map((p) => p.storeProduct).firstWhere(
+                (sp) => _normalizeId(sp.identifier) == base,
+                orElse: () => offering.availablePackages.first.storeProduct,
+              );
       return match.priceString;
     } catch (_) {
       if (_normalizeId(productId) == 'test_premium') return '₺0,00';

@@ -243,6 +243,7 @@ class _GamePageState extends State<GamePage> with TickerProviderStateMixin {
         return false;
       },
       child: Scaffold(
+        backgroundColor: AppColors.game,
         body: SafeArea(
           child: Stack(
             children: [

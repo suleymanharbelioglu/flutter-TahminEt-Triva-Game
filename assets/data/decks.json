@@ -21,7 +21,7 @@
     "namesFilePath": "assets/data/names/meyveler_ve_sebzeler_nameList.json",
     "deckTextColor": "0xFF344F2B",
     "deckDescription": "Tatlı mı? Ekşi mi? Ağaçta mı yetişir?...\n\nBu deste, sıkça tüketilen meyve ve sebzeleri içeriyor.\n\nArkadaşlarına sorular sor ve ipuçlarından yola çıkarak tahmin et!",
-    "isPremium": false
+    "isPremium": true
   },
   {
     "deckName": "Markalar",
@@ -81,7 +81,7 @@
     "namesFilePath": "assets/data/names/super_kahramanlar_nameList.json",
     "deckTextColor": "0xFF344F2B",
     "deckDescription": "Uçabiliyor mu? Kalkan mı kullanıyor?...\n\nBu deste, DC ve Marvel evrenlerindeki en popüler süper kahramanları içeriyor.\n\nArkadaşlarına sorular sor ve ipuçlarından yola çıkarak tahmin et!",
-    "isPremium": false
+    "isPremium": true
   },
   {
     "deckName": "Ülkeler",
@@ -309,7 +309,7 @@
     "namesFilePath": "assets/data/names/oyunlar_nameList.json",
     "deckTextColor": "0xFFF1BCCE",
     "deckDescription": "Mobil mi, konsol mu? PC oyunu mu?...\n\nBu deste, en popüler dijital oyunları içeriyor.\n\nArkadaşlarına sorular sor ve ipuçlarından yola çıkarak tahmin et!",
-    "isPremium": false
+    "isPremium": true
   },
   {
     "deckName": "Meslekler",
