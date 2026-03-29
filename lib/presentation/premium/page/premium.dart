@@ -230,6 +230,36 @@ class _PlansSection extends StatelessWidget {
     return '%$percent';
   }
 
+  /// Eski fiyat = güncel ham fiyat / (1 - indirimOranı); biçim mağaza `price` string'ine yaklaştırılır.
+  String? _strikethroughPriceForPlan(
+    ProductModel product,
+    double discountFraction,
+  ) {
+    if (discountFraction <= 0 || discountFraction >= 1) return null;
+    if (product.rawPrice <= 0) return null;
+    final oldRaw = product.rawPrice / (1.0 - discountFraction);
+    return _formatMoneyLikePriceString(product.price, oldRaw);
+  }
+
+  String _formatMoneyLikePriceString(String templatePrice, double value) {
+    final t = templatePrice.trim();
+    if (t.contains('₺')) {
+      final p = value.toStringAsFixed(2).split('.');
+      return '₺${p[0]},${p[1]}';
+    }
+    final upper = t.toUpperCase();
+    if (upper.contains('TRY')) {
+      return 'TRY ${value.toStringAsFixed(2)}';
+    }
+    if (t.startsWith(r'$')) {
+      return r'$' + value.toStringAsFixed(2);
+    }
+    if (t.contains('€')) {
+      return '${value.toStringAsFixed(2).replaceAll('.', ',')} €';
+    }
+    return value.toStringAsFixed(2);
+  }
+
   @override
   Widget build(BuildContext context) {
     return BlocBuilder<LoadProductsCubit, LoadProductsState>(
@@ -245,37 +275,47 @@ class _PlansSection extends StatelessWidget {
           final selectedProductId = context.watch<SelectedPlanCubit>().state;
           final isPurchasing =
               context.watch<PurchaseCubit>().state is PurchaseInProgress;
+          final useIosOverrides = !kIsWeb && Platform.isIOS;
+          final isAndroid = !kIsWeb && Platform.isAndroid;
+          // iOS sabit TRY; Android mağaza fiyatı + aynı pazarlama indirim yüzdeleri.
+          final useFixedDiscountUi = useIosOverrides || isAndroid;
 
           final weekly = _findProduct(products, 'weekly_premium');
           final monthly = _findProduct(products, 'monthly_premium');
           final yearly = _findProduct(products, 'yearly_premium');
 
-          final useIosOverrides = !kIsWeb && Platform.isIOS;
           // iOS (App Store) tarafında fiyatlar farklı olabiliyor; UI'da sabit göster.
           // Yüzdeleri kullanıcıya göre sabit kabul ediyoruz.
           final weeklyPriceText = useIosOverrides ? 'TRY 30.00' : weekly.price;
-          final monthlyPriceText = useIosOverrides ? 'TRY 80.00' : monthly.price;
+          final monthlyPriceText =
+              useIosOverrides ? 'TRY 80.00' : monthly.price;
           final yearlyPriceText = useIosOverrides ? 'TRY 600.00' : yearly.price;
 
           // İndirim oranları (iOS): haftalık %25, aylık %40, yıllık %50
           // Eski fiyat = yeni fiyat / (1 - indirimOranı)
-          final weeklyOldPriceText = useIosOverrides ? 'TRY 40.00' : null; // 30 / 0.75
-          final monthlyOldPriceText = useIosOverrides ? 'TRY 133.33' : null; // 80 / 0.60
-          final yearlyOldPriceText = useIosOverrides ? 'TRY 1200.00' : null;
+          final weeklyOldPriceText = useIosOverrides
+              ? 'TRY 40.00'
+              : (isAndroid ? _strikethroughPriceForPlan(weekly, 0.25) : null);
+          final monthlyOldPriceText = useIosOverrides
+              ? 'TRY 133.33'
+              : (isAndroid ? _strikethroughPriceForPlan(monthly, 0.40) : null);
+          final yearlyOldPriceText = useIosOverrides
+              ? 'TRY 1200.00'
+              : (isAndroid ? _strikethroughPriceForPlan(yearly, 0.50) : null);
 
-          final weeklyDiscount = useIosOverrides
+          final weeklyDiscount = useFixedDiscountUi
               ? '%25'
               : _discountBadge(
                   current: weekly,
                   referenceRawPrice: monthly.rawPrice / 4,
                 );
-          final monthlyDiscount = useIosOverrides
+          final monthlyDiscount = useFixedDiscountUi
               ? '%40'
               : _discountBadge(
                   current: monthly,
                   referenceRawPrice: weekly.rawPrice * 4,
                 );
-          final yearlyDiscount = useIosOverrides
+          final yearlyDiscount = useFixedDiscountUi
               ? '%50'
               : _discountBadge(
                   current: yearly,

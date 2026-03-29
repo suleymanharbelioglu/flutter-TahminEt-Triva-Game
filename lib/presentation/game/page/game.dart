@@ -244,16 +244,14 @@ class _GamePageState extends State<GamePage> with TickerProviderStateMixin {
       },
       child: Scaffold(
         backgroundColor: AppColors.game,
-        body: SafeArea(
-          child: Stack(
-            children: [
-              _buildAnimatedNames(),
-              _buildBackButton(),
-              _buildScore(),
-              _buildTimer(),
-              if (_isTimeOver) _buildTimeOverOverlay(),
-            ],
-          ),
+        body: Stack(
+          children: [
+            _buildAnimatedNames(),
+            _buildBackButton(),
+            _buildScore(),
+            _buildTimer(),
+            if (_isTimeOver) _buildTimeOverOverlay(),
+          ],
         ),
       ),
     );
@@ -298,8 +296,9 @@ class _GamePageState extends State<GamePage> with TickerProviderStateMixin {
   }
 
   Widget _buildBackButton() {
+    final topInset = MediaQuery.of(context).padding.top;
     return Positioned(
-      top: 16.h, // responsive top
+      top: topInset + 8.h,
       left: 16.h, // responsive left
       child: IconButton(
         icon: Icon(
@@ -450,12 +449,20 @@ class _GamePageState extends State<GamePage> with TickerProviderStateMixin {
   }
 
   Widget _buildScore() {
-    return Align(alignment: Alignment.bottomCenter, child: GameScore());
+    final bottomInset = MediaQuery.of(context).padding.bottom;
+    return Align(
+      alignment: Alignment.bottomCenter,
+      child: Padding(
+        padding: EdgeInsets.only(bottom: bottomInset + 8.h),
+        child: GameScore(),
+      ),
+    );
   }
 
   Widget _buildTimer() {
+    final topInset = MediaQuery.of(context).padding.top;
     return Positioned(
-      top: 20.h, // ScreenUtil ile yüksekliği scale ettik
+      top: topInset + 8.h,
       left: 0,
       right: 0,
       child: Center(

@@ -35,7 +35,7 @@ class _PhoneToForeheadPageState extends State<PhoneToForeheadPage> {
     super.initState();
     countdown = 4;
     countdownStarted = false; // Her sayfa açılışında sıfırlanıyor
-    // Yatay mod kilidi
+    // Yatay mod tek yöne kilitli
     SystemChrome.setPreferredOrientations([DeviceOrientation.landscapeLeft]);
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.manual, overlays: []);
 
