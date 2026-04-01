@@ -33,6 +33,8 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:purchases_flutter/purchases_flutter.dart';
 import 'package:flutter/foundation.dart';
+import 'package:app_tracking_transparency/app_tracking_transparency.dart';
+import 'dart:io' show Platform;
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -60,9 +62,25 @@ Future<void> main() async {
 
   runApp(const MyApp());
 
+  // iOS ATT (Tracking izni): ilk açılışta bir kez sorulur.
+  // Not: İzin verilmezse reklamlar yine gösterilebilir, sadece kişiselleştirme etkilenir.
+  _requestATTIfNeeded();
+
   // AdMob (iOS'ta Info.plist içinde GADApplicationIdentifier gerekir).
   // UI'yı bloklamaması için runApp'ten sonra başlatıyoruz.
   MobileAds.instance.initialize();
+}
+
+Future<void> _requestATTIfNeeded() async {
+  if (kIsWeb || !Platform.isIOS) return;
+  try {
+    final status = await AppTrackingTransparency.trackingAuthorizationStatus;
+    if (status == TrackingStatus.notDetermined) {
+      await AppTrackingTransparency.requestTrackingAuthorization();
+    }
+  } catch (_) {
+    // iOS 14 altı / beklenmeyen durumlarda sessizce geç.
+  }
 }
 
 class MyApp extends StatelessWidget {

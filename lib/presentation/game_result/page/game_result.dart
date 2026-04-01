@@ -365,6 +365,11 @@ class _BannerContainerState extends State<BannerContainer> {
         },
         onAdFailedToLoad: (ad, error) {
           ad.dispose();
+          if (kDebugMode) {
+            debugPrint(
+              'BannerAd(gameResult) failed: code=${error.code} domain=${error.domain} message=${error.message}',
+            );
+          }
         },
       ),
     );

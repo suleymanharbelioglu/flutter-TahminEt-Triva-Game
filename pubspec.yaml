@@ -46,6 +46,7 @@ dependencies:
   font_awesome_flutter: ^10.7.0 # Daha stabil bir sürüme çekildi.
   google_fonts: ^6.3.2
   google_mobile_ads: ^6.0.0
+  app_tracking_transparency: ^2.0.6
   purchases_flutter: ^8.10.0
   purchases_ui_flutter: ^8.10.0
   connectivity_plus: ^7.0.0

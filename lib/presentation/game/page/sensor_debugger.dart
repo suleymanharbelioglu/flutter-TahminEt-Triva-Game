@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:sensors_plus/sensors_plus.dart';
+import 'dart:io' show Platform;
 
 class SensorDebugPage extends StatefulWidget {
   const SensorDebugPage({super.key});
@@ -16,7 +17,9 @@ class _SensorDebugPageState extends State<SensorDebugPage> {
   void initState() {
     super.initState();
     // Sadece landscape right’a zorla
-    SystemChrome.setPreferredOrientations([DeviceOrientation.landscapeLeft]);
+    SystemChrome.setPreferredOrientations([
+      Platform.isIOS ? DeviceOrientation.landscapeRight : DeviceOrientation.landscapeLeft,
+    ]);
 
     accelerometerEvents.listen((event) {
       setState(() {

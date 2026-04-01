@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io' show Platform;
 import 'package:ben_kimim/common/helper/sound/sound.dart';
 import 'package:ben_kimim/core/configs/theme/app_color.dart';
 import 'package:ben_kimim/presentation/bottom_nav/page/bottom_nav.dart';
@@ -60,7 +61,11 @@ class _GamePageState extends State<GamePage> with TickerProviderStateMixin {
   }
 
   void _setupOrientation() {
-    SystemChrome.setPreferredOrientations([DeviceOrientation.landscapeLeft]);
+    // Android: mevcut davranış kalsın (landscapeLeft).
+    // iOS: telefonun üst kısmı solda kalsın diye ters landscape kullanılır.
+    SystemChrome.setPreferredOrientations([
+      Platform.isIOS ? DeviceOrientation.landscapeRight : DeviceOrientation.landscapeLeft,
+    ]);
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.manual, overlays: []);
   }
 

@@ -8,6 +8,7 @@ import 'package:ben_kimim/presentation/premium/bloc/is_user_premium_cubit.dart';
 import 'package:ben_kimim/presentation/premium/page/premium.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter/foundation.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -180,6 +181,11 @@ class _BannerContainerState extends State<BannerContainer> {
         onAdFailedToLoad: (ad, error) {
           ad.dispose();
           if (mounted) setState(() => _isAdLoaded = false);
+          if (kDebugMode) {
+            debugPrint(
+              'BannerAd(homePage) failed: code=${error.code} domain=${error.domain} message=${error.message}',
+            );
+          }
         },
       ),
     )..load();

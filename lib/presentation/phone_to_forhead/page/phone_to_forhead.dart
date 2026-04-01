@@ -1,5 +1,6 @@
 // phone_to_forehead_page.dart
 import 'dart:async';
+import 'dart:io' show Platform;
 import 'package:ben_kimim/common/helper/sound/sound.dart';
 import 'package:ben_kimim/core/configs/theme/app_color.dart';
 import 'package:ben_kimim/presentation/game/page/game.dart';
@@ -36,7 +37,11 @@ class _PhoneToForeheadPageState extends State<PhoneToForeheadPage> {
     countdown = 4;
     countdownStarted = false; // Her sayfa açılışında sıfırlanıyor
     // Yatay mod tek yöne kilitli
-    SystemChrome.setPreferredOrientations([DeviceOrientation.landscapeLeft]);
+    // Android: mevcut davranış kalsın (landscapeLeft).
+    // iOS: telefonun üst kısmı solda kalsın.
+    SystemChrome.setPreferredOrientations([
+      Platform.isIOS ? DeviceOrientation.landscapeRight : DeviceOrientation.landscapeLeft,
+    ]);
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.manual, overlays: []);
 
     // Telefon pozisyonunu dinle
