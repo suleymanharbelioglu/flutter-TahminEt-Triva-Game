@@ -80,7 +80,7 @@
     "arkaGorselAdress": "assets/images/deck_images/super_kahramanlar_arka.jpg",
     "namesFilePath": "assets/data/names/super_kahramanlar_nameList.json",
     "deckTextColor": "0xFF344F2B",
-    "deckDescription": "Uçabiliyor mu? Kalkan mı kullanıyor?...\n\nBu deste, DC ve Marvel evrenlerindeki en popüler süper kahramanları içeriyor.\n\nArkadaşlarına sorular sor ve ipuçlarından yola çıkarak tahmin et!",
+    "deckDescription": "Uçabiliyor mu? Kalkan mı kullanıyor?...\n\nBu deste, DC evrenindeki popüler süper kahramanları içeriyor.\n\nArkadaşlarına sorular sor ve ipuçlarından yola çıkarak tahmin et!",
     "isPremium": true
   },
   {

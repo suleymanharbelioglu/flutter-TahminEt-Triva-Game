@@ -213,24 +213,122 @@ class _DeckFlipState extends State<DeckFlip>
     );
   }
 
+  bool _isTabletLayout(BuildContext context) =>
+      MediaQuery.sizeOf(context).shortestSide >= 600;
+
+  /// Süre (+/-) satırı: tablette daha büyük; üstteki sabit 160×35 px hatası kaldırıldı.
+  Widget _buildTimerStepper() {
+    final tablet = _isTabletLayout(context);
+    final btn = tablet ? 48.h : 50.h;
+    final barW = tablet ? 210.h : 200.h;
+    final barH = btn;
+    final r = barH / 2;
+
+    return BlocBuilder<TimerCubit, int>(
+      builder: (context, state) {
+        return Padding(
+          padding: EdgeInsets.only(
+            top: tablet ? 4.h : 20.h,
+            bottom: tablet ? 8.h : 20.h,
+          ),
+          child: Center(
+            child: Container(
+              width: barW,
+              height: barH,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(r),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Container(
+                    width: btn,
+                    height: btn,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF339CFF),
+                      borderRadius: BorderRadius.only(
+                        topLeft: Radius.circular(r),
+                        bottomLeft: Radius.circular(r),
+                      ),
+                    ),
+                    child: IconButton(
+                      padding: EdgeInsets.zero,
+                      icon: Icon(
+                        Icons.remove,
+                        color: Colors.white,
+                        size: 24.sp,
+                      ),
+                      onPressed: () =>
+                          context.read<TimerCubit>().decrease(),
+                    ),
+                  ),
+                  Expanded(
+                    child: Center(
+                      child: Text(
+                        "${state}s",
+                        style: TextStyle(
+                          fontSize: tablet ? 24.sp : 22.sp,
+                          fontWeight: FontWeight.bold,
+                          color: const Color(0xFF339CFF),
+                        ),
+                      ),
+                    ),
+                  ),
+                  Container(
+                    width: btn,
+                    height: btn,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF339CFF),
+                      borderRadius: BorderRadius.only(
+                        topRight: Radius.circular(r),
+                        bottomRight: Radius.circular(r),
+                      ),
+                    ),
+                    child: IconButton(
+                      padding: EdgeInsets.zero,
+                      icon: Icon(
+                        Icons.add,
+                        color: Colors.white,
+                        size: 24.sp,
+                      ),
+                      onPressed: () =>
+                          context.read<TimerCubit>().increase(),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   Widget buildBackCard() {
+    final descSize = _isTabletLayout(context) ? 22.sp : 20.sp;
+    final titleSize = _isTabletLayout(context) ? 34.sp : 32.sp;
+    final isTablet = _isTabletLayout(context);
+
     return Transform(
       alignment: Alignment.center,
       transform: Matrix4.identity()..rotateY(pi),
       child: _buildCard(
         widget.deck.arkaGorselAdress,
         Column(
-          mainAxisAlignment: MainAxisAlignment.center,
+          // Tablet: üste hizala; aksi halde başlık ile metin arasında dev boşluk oluşuyor.
+          mainAxisAlignment:
+              isTablet ? MainAxisAlignment.start : MainAxisAlignment.center,
           children: [
             Padding(
-              padding: EdgeInsets.only(top: 20.h),
+              padding: EdgeInsets.only(top: isTablet ? 12.h : 20.h),
               child: Stack(
                 children: [
                   Text(
                     widget.deck.deckName,
                     textAlign: TextAlign.center,
                     style: TextStyle(
-                      fontSize: 32.sp,
+                      fontSize: titleSize,
                       fontWeight: FontWeight.bold,
                       foreground: Paint()
                         ..style = PaintingStyle.stroke
@@ -242,7 +340,7 @@ class _DeckFlipState extends State<DeckFlip>
                     widget.deck.deckName,
                     textAlign: TextAlign.center,
                     style: TextStyle(
-                      fontSize: 32.sp,
+                      fontSize: titleSize,
                       fontWeight: FontWeight.bold,
                       color: Colors.white,
                     ),
@@ -250,227 +348,65 @@ class _DeckFlipState extends State<DeckFlip>
                 ],
               ),
             ),
-            SizedBox(height: 20.h),
+            SizedBox(height: isTablet ? 14.h : 16.h),
             Expanded(
-              child: SingleChildScrollView(
-                padding: EdgeInsets.symmetric(horizontal: 16.w),
-                child: Column(
-                  children: [
-                    Stack(
-                      children: [
-                        Text(
-                          widget.deck.deckDescription,
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            fontSize: 20.sp,
-                            fontWeight: FontWeight.w600,
-                            foreground: Paint()
-                              ..style = PaintingStyle.stroke
-                              ..strokeWidth = 3.sp
-                              ..color = Colors.black,
-                          ),
-                        ),
-                        Text(
-                          widget.deck.deckDescription,
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            fontSize: 20.sp,
-                            fontWeight: FontWeight.w600,
-                            color: Colors.white,
-                          ),
-                        ),
-                      ],
-                    ),
-                    SizedBox(height: 20.h),
-                    BlocBuilder<IsUserPremiumCubit, bool>(
-                      builder: (context, userIsPremium) {
-                        // Eğer deck premium değilse Timer göster
-                        if (!widget.deck.isPremium) {
-                          return BlocBuilder<TimerCubit, int>(
-                            builder: (context, state) {
-                              return Padding(
-                                padding:
-                                    EdgeInsets.only(top: 40.h, bottom: 30.h),
-                                child: Align(
-                                  alignment: Alignment.bottomCenter,
-                                  child: Container(
-                                    padding: EdgeInsets.symmetric(
-                                        horizontal: 8.w, vertical: 4.h),
-                                    decoration: BoxDecoration(
-                                      color: Colors.transparent,
-                                      borderRadius: BorderRadius.circular(30.r),
-                                    ),
-                                    child: Container(
-                                      width: 160,
-                                      height: 35,
-                                      decoration: BoxDecoration(
-                                        color: Colors.white,
-                                        borderRadius:
-                                            BorderRadius.circular(25.r),
-                                      ),
-                                      child: Row(
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.spaceBetween,
-                                        children: [
-                                          Container(
-                                            width: 50.h,
-                                            height: 50.h,
-                                            decoration: BoxDecoration(
-                                              color: Color(0xFF339CFF),
-                                              borderRadius: BorderRadius.only(
-                                                topLeft: Radius.circular(25.r),
-                                                bottomLeft:
-                                                    Radius.circular(25.r),
-                                              ),
-                                            ),
-                                            child: IconButton(
-                                              icon: Icon(Icons.remove,
-                                                  color: Colors.white,
-                                                  size: 24.sp),
-                                              onPressed: () => context
-                                                  .read<TimerCubit>()
-                                                  .decrease(),
-                                            ),
-                                          ),
-                                          Expanded(
-                                            child: Center(
-                                              child: Text(
-                                                "${state}s",
-                                                style: TextStyle(
-                                                  fontSize: 22.sp,
-                                                  fontWeight: FontWeight.bold,
-                                                  color: Color(0xFF339CFF),
-                                                ),
-                                              ),
-                                            ),
-                                          ),
-                                          Container(
-                                            width: 50.h,
-                                            height: 50.h,
-                                            decoration: BoxDecoration(
-                                              color: Color(0xFF339CFF),
-                                              borderRadius: BorderRadius.only(
-                                                topRight: Radius.circular(25.r),
-                                                bottomRight:
-                                                    Radius.circular(25.r),
-                                              ),
-                                            ),
-                                            child: IconButton(
-                                              icon: Icon(Icons.add,
-                                                  color: Colors.white,
-                                                  size: 24.sp),
-                                              onPressed: () => context
-                                                  .read<TimerCubit>()
-                                                  .increase(),
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  return SingleChildScrollView(
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(
+                        minHeight: constraints.maxHeight,
+                      ),
+                      child: Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 16.w),
+                        child: Column(
+                          mainAxisAlignment: isTablet
+                              ? MainAxisAlignment.start
+                              : MainAxisAlignment.center,
+                          children: [
+                            Stack(
+                              children: [
+                                Text(
+                                  widget.deck.deckDescription,
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                    fontSize: descSize,
+                                    fontWeight: FontWeight.w600,
+                                    foreground: Paint()
+                                      ..style = PaintingStyle.stroke
+                                      ..strokeWidth = 3.sp
+                                      ..color = Colors.black,
                                   ),
                                 ),
-                              );
-                            },
-                          );
-                        }
-
-                        // Deck premium ve kullanıcı premium değilse Timer yok
-                        if (widget.deck.isPremium && !userIsPremium) {
-                          return const SizedBox.shrink();
-                        }
-
-                        // Deck premium ve kullanıcı premium ise Timer göster
-                        return BlocBuilder<TimerCubit, int>(
-                          builder: (context, state) {
-                            return Padding(
-                              padding: EdgeInsets.only(top: 40.h, bottom: 30.h),
-                              child: Align(
-                                alignment: Alignment.bottomCenter,
-                                child: Container(
-                                  padding: EdgeInsets.symmetric(
-                                      horizontal: 8.w, vertical: 4.h),
-                                  decoration: BoxDecoration(
-                                    color: Colors.transparent,
-                                    borderRadius: BorderRadius.circular(30),
-                                  ),
-                                  child: Container(
-                                    width: 160.h,
-                                    height: 35.h,
-                                    decoration: BoxDecoration(
-                                      color: Colors.white,
-                                      borderRadius: BorderRadius.circular(25.r),
-                                    ),
-                                    child: Row(
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.spaceBetween,
-                                      children: [
-                                        Container(
-                                          width: 50.h,
-                                          height: 50.h,
-                                          decoration: BoxDecoration(
-                                            color: Color(0xFF339CFF),
-                                            borderRadius: BorderRadius.only(
-                                              topLeft: Radius.circular(25.r),
-                                              bottomLeft: Radius.circular(25.r),
-                                            ),
-                                          ),
-                                          child: IconButton(
-                                            icon: Icon(Icons.remove,
-                                                color: Colors.white,
-                                                size: 24.sp),
-                                            onPressed: () => context
-                                                .read<TimerCubit>()
-                                                .decrease(),
-                                          ),
-                                        ),
-                                        Expanded(
-                                          child: Center(
-                                            child: Text(
-                                              "${state}s",
-                                              style: TextStyle(
-                                                fontSize: 22.sp,
-                                                fontWeight: FontWeight.bold,
-                                                color: Color(0xFF339CFF),
-                                              ),
-                                            ),
-                                          ),
-                                        ),
-                                        Container(
-                                          width: 50.h,
-                                          height: 50.h,
-                                          decoration: BoxDecoration(
-                                            color: Color(0xFF339CFF),
-                                            borderRadius: BorderRadius.only(
-                                              topRight: Radius.circular(25.r),
-                                              bottomRight:
-                                                  Radius.circular(25.r),
-                                            ),
-                                          ),
-                                          child: IconButton(
-                                            icon: Icon(Icons.add,
-                                                color: Colors.white,
-                                                size: 24.sp),
-                                            onPressed: () => context
-                                                .read<TimerCubit>()
-                                                .increase(),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
+                                Text(
+                                  widget.deck.deckDescription,
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                    fontSize: descSize,
+                                    fontWeight: FontWeight.w600,
+                                    color: Colors.white,
                                   ),
                                 ),
-                              ),
-                            );
-                          },
-                        );
-                      },
+                              ],
+                            ),
+                            SizedBox(height: isTablet ? 14.h : 20.h),
+                            BlocBuilder<IsUserPremiumCubit, bool>(
+                              builder: (context, userIsPremium) {
+                                if (widget.deck.isPremium && !userIsPremium) {
+                                  return const SizedBox.shrink();
+                                }
+                                return _buildTimerStepper();
+                              },
+                            ),
+                          ],
+                        ),
+                      ),
                     ),
-                    SizedBox(height: 16.h),
-                  ],
-                ),
+                  );
+                },
               ),
             ),
-            SizedBox(height: 16.h),
+            SizedBox(height: isTablet ? 8.h : 12.h),
             _buildButtons(),
           ],
         ),
@@ -479,9 +415,16 @@ class _DeckFlipState extends State<DeckFlip>
   }
 
   Widget _buildCard(String imagePath, Widget? child) {
+    final mq = MediaQuery.sizeOf(context);
+    final isTablet = mq.shortestSide >= 600;
+    // Telefon: %90 genişlik; tablet/iPad: biraz daha küçük kart (çevirme sonrası daha dengeli).
+    final widthFactor = isTablet ? 0.76 : 0.9;
+    final cardWidth = mq.width * widthFactor;
+    final cardHeight = cardWidth * (1.5 / 0.9);
+
     return Container(
-      width: MediaQuery.of(context).size.width * 0.9,
-      height: MediaQuery.of(context).size.width * 1.5,
+      width: cardWidth,
+      height: cardHeight,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(20),
         boxShadow: const [BoxShadow(color: Colors.black38, blurRadius: 20)],

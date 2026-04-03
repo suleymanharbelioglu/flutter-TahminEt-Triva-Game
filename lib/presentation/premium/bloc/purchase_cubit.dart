@@ -22,12 +22,35 @@ class PurchaseCubit extends Cubit<PurchaseState> {
         return;
       }
 
-      final package = offering.availablePackages.firstWhere(
-        (p) => _baseId(p.storeProduct.identifier) == _baseId(productId),
-        orElse: () => throw StateError('Package not found for $productId'),
-      );
+      final base = _baseId(productId);
+      Package? package;
+      for (final p in offering.availablePackages) {
+        if (_baseId(p.storeProduct.identifier) == base) {
+          package = p;
+          break;
+        }
+      }
 
-      final customerInfo = await Purchases.purchasePackage(package);
+      final CustomerInfo customerInfo;
+      if (package != null) {
+        customerInfo = await Purchases.purchasePackage(package);
+      } else {
+        // Offering'de paket yoksa (ör. Weekly eksik) doğrudan Store ürününden satın al.
+        final products = await Purchases.getProducts([base]);
+        if (products.isEmpty) {
+          emit(
+            PurchaseFailure(
+              message: 'Ürün bulunamadı: $base (mağaza ürün listesi boş).',
+            ),
+          );
+          return;
+        }
+        final storeProduct = products.firstWhere(
+          (sp) => _baseId(sp.identifier) == base,
+          orElse: () => products.first,
+        );
+        customerInfo = await Purchases.purchaseStoreProduct(storeProduct);
+      }
       final model = PurchaseModel.fromCustomerInfo(customerInfo);
 
       if (model.isActive) {

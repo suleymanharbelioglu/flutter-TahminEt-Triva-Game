@@ -42,7 +42,7 @@ class _DeckContent extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       color: AppColors.allDecksBackground,
-      height: SizeHelper.categoryDeckHeight, // MediaQuery tabanlı, dokunma!
+      height: SizeHelper.categoryDeckHeight(context), // MediaQuery tabanlı, dokunma!
       child: BlocBuilder<UnlulerDecksCubit, UnlulerDecksState>(
         builder: (context, state) {
           if (state is UnlulerDecksLoading) {
@@ -92,13 +92,15 @@ class _DeckContent extends StatelessWidget {
 
     return ListView.builder(
       scrollDirection: Axis.horizontal,
-      padding: EdgeInsets.symmetric(horizontal: 16.w),
+      padding: EdgeInsets.symmetric(
+        horizontal: SizeHelper.categoryListHorizontalPad,
+      ),
       itemCount: deckList.length,
       itemBuilder: (context, index) {
         return Padding(
-          padding: EdgeInsets.only(right: 8.w),
+          padding: EdgeInsets.only(right: SizeHelper.categoryListGap),
           child: SizedBox(
-            width: SizeHelper.categoryDeckWidth, // Dokunma!
+            width: SizeHelper.categoryDeckWidth(context), // Dokunma!
             child: DeckCover(deck: deckList[index]),
           ),
         );

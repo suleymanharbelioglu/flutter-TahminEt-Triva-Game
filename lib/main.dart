@@ -83,13 +83,28 @@ Future<void> _requestATTIfNeeded() async {
   }
 }
 
+/// Telefon için dar tasarım; tablet/iPad için [designSize] küçüldükçe
+/// [ScreenUtil] `.sp` ölçeği artar — yazılar büyür.
+Size _responsiveDesignSize() {
+  final views = WidgetsBinding.instance.platformDispatcher.views;
+  if (views.isEmpty) return const Size(392, 825);
+  final view = views.first;
+  final logical = view.physicalSize / view.devicePixelRatio;
+  final shortest =
+      logical.width < logical.height ? logical.width : logical.height;
+  if (shortest >= 600) {
+    return const Size(600, 800);
+  }
+  return const Size(392, 825);
+}
+
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
   @override
   Widget build(BuildContext context) {
     return ScreenUtilInit(
-      designSize: const Size(392, 825),
+      designSize: _responsiveDesignSize(),
       minTextAdapt: true,
       splitScreenMode: true,
       builder: (_, __) {

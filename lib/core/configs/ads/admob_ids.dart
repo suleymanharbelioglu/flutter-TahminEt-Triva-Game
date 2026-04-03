@@ -1,10 +1,9 @@
 import 'package:flutter/foundation.dart';
 
 class AdMobIds {
-  /// iOS App Store yayına çıkana kadar AdMob "no fill" normal.
-  /// Bu flag iOS'ta tüm reklam birimlerini test ID'lerine geçirir.
-  /// Gerçek reklamlara dönmek için false yapman yeterli.
-  static const bool _useTestAdsOnIOS = true;
+  /// true iken iOS'ta Google test birim ID'leri kullanılır.
+  /// Yayın / gerçek reklamlar için false (üretim birimleri).
+  static const bool _useTestAdsOnIOS = false;
 
   // Google test ad unit IDs (safe for development).
   static const String _testBanner = 'ca-app-pub-3940256099942544/2934735716';

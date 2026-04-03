@@ -13,6 +13,25 @@ class LoadProductsCubit extends Cubit<LoadProductsState> {
 
   String _baseId(String productId) => productId.split(':').first;
 
+  Future<List<ProductModel>> _loadViaProductsFallback() async {
+    final storeProducts = await Purchases.getProducts(_baseProductIds.toList());
+    final byBaseId = <String, ProductModel>{};
+    for (final sp in storeProducts) {
+      final base = _baseId(sp.identifier);
+      if (_baseProductIds.contains(base)) {
+        byBaseId.putIfAbsent(base, () => ProductModel.fromStoreProduct(sp));
+      }
+    }
+
+    final missing = _baseProductIds.where((id) => !byBaseId.containsKey(id));
+    if (missing.isNotEmpty) {
+      throw StateError(
+        'Store ürünleri içinde eksik ürün var: ${missing.join(', ')}',
+      );
+    }
+    return byBaseId.values.toList();
+  }
+
   /// Ürün ID listesi vererek ürünleri yükle
   Future<void> loadProducts() async {
     emit(LoadProductsLoading()); // Önce loading state
@@ -22,11 +41,8 @@ class LoadProductsCubit extends Cubit<LoadProductsState> {
       final offering = offerings.current;
 
       if (offering == null) {
-        emit(
-          LoadProductsFailure(
-            message: 'RevenueCat offering bulunamadı (current null).',
-          ),
-        );
+        final products = await _loadViaProductsFallback();
+        emit(LoadProductsSuccess(products: products));
         return;
       }
 
@@ -42,12 +58,9 @@ class LoadProductsCubit extends Cubit<LoadProductsState> {
 
       final missing = _baseProductIds.where((id) => !byBaseId.containsKey(id));
       if (missing.isNotEmpty) {
-        emit(
-          LoadProductsFailure(
-            message:
-                'Bazı ürünler RevenueCat offering içinde yok: ${missing.join(', ')}',
-          ),
-        );
+        // Offering eksik/yanlış konfigüre edildiyse doğrudan Store ürünlerine düş.
+        final products = await _loadViaProductsFallback();
+        emit(LoadProductsSuccess(products: products));
         return;
       }
 

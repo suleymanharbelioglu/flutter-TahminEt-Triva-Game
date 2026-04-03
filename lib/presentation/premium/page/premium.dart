@@ -11,7 +11,8 @@ import 'package:ben_kimim/presentation/premium/bloc/purchase_state.dart';
 import 'package:ben_kimim/presentation/premium/bloc/selected_plan_cubit.dart';
 import 'package:ben_kimim/presentation/premium/bloc/unlock_premium.dart';
 import 'package:ben_kimim/presentation/premium/page/premium_info.dart';
-import 'dart:io';
+import 'package:ben_kimim/core/configs/legal_urls.dart';
+import 'package:ben_kimim/core/configs/theme/app_color.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -79,30 +80,51 @@ class PremiumPage extends StatelessWidget {
           }
 
           return Scaffold(
-            backgroundColor: Colors.white,
+            backgroundColor: const Color(0xFFF5F7FA),
             body: SafeArea(
-              child: Padding(
-                padding: EdgeInsets.symmetric(
-                  horizontal: 24.w,
-                  vertical: 11.h,
-                ),
-                child: Column(
-                  children: [
-                    SizedBox(height: 13.h),
-                    const _HeaderSection(),
-                    SizedBox(height: 13.h),
-                    const _FeaturesSection(),
-                    SizedBox(height: 17.h),
-                    const Expanded(child: _PlansSection()),
-                    SizedBox(height: 10.h),
-                    const _PaymentInfoText(),
-                    SizedBox(height: 7.h),
-                    const _StartButton(),
-                    SizedBox(height: 10.h),
-                    const _BottomLinks(),
-                    SizedBox(height: 12.h),
-                  ],
-                ),
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  return SingleChildScrollView(
+                    padding: EdgeInsets.symmetric(
+                      horizontal: 20.w,
+                      vertical: 12.h,
+                    ),
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(
+                        minHeight: constraints.maxHeight,
+                      ),
+                      child: IntrinsicHeight(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            const _HeaderSection(),
+                            SizedBox(height: 16.h),
+                            const _FeaturesSection(),
+                            SizedBox(height: 20.h),
+                            Text(
+                              'Plan seçin',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                fontSize: 16.sp,
+                                fontWeight: FontWeight.w700,
+                                color: AppColors.primary,
+                              ),
+                            ),
+                            SizedBox(height: 10.h),
+                            const _PlansSection(),
+                            SizedBox(height: 18.h),
+                            const _LegalLinksCard(),
+                            SizedBox(height: 14.h),
+                            const _PaymentInfoText(),
+                            SizedBox(height: 12.h),
+                            const _StartButton(),
+                            SizedBox(height: 16.h),
+                          ],
+                        ),
+                      ),
+                    ),
+                  );
+                },
               ),
             ),
           );
@@ -135,17 +157,32 @@ class _HeaderSection extends StatelessWidget {
           hoverColor: Colors.transparent,
           icon: Icon(
             Icons.workspace_premium,
-            color: Colors.orange,
-            size: 80.sp,
+            color: AppColors.primary,
+            size: 72.sp,
+          ),
+        ),
+        SizedBox(height: 8.h),
+        Text(
+          'Tahmin Et VIP',
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            fontSize: 22.sp,
+            fontWeight: FontWeight.w800,
+            color: AppColors.primary,
+            letterSpacing: 0.3,
           ),
         ),
         SizedBox(height: 6.h),
-        Text(
-          "VIP ÜYELİKLER",
-          style: TextStyle(
-            fontSize: 24.sp,
-            fontWeight: FontWeight.bold,
-            color: Colors.black,
+        Padding(
+          padding: EdgeInsets.symmetric(horizontal: 12.w),
+          child:         Text(
+            'Hizmet: Tahmin Et VIP — otomatik yenilenen abonelik. Her dönemde: tüm destelere erişim ve reklamsız kullanım.',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 14.sp,
+              height: 1.35,
+              color: Colors.grey.shade800,
+            ),
           ),
         ),
       ],
@@ -217,6 +254,35 @@ class _PlansSection extends StatelessWidget {
     }
   }
 
+  /// App Store 3.1.2(c): abonelik başlığı mümkünse mağazadaki IAP adıyla aynı olmalı.
+  String _subscriptionDisplayTitle(ProductModel p) {
+    final fromStore = p.title.trim();
+    if (fromStore.isNotEmpty) return fromStore;
+    return _getTitle(p.productId);
+  }
+
+  /// Apple 3.1.2: abonelik süresi açıkça (hafta/ay/yıl).
+  String _periodLine(String productId) {
+    switch (_normalizeId(productId)) {
+      case 'weekly_premium':
+        return 'Süre: 1 hafta · otomatik yenilenir';
+      case 'monthly_premium':
+        return 'Süre: 1 ay · otomatik yenilenir';
+      case 'yearly_premium':
+        return 'Süre: 1 yıl · otomatik yenilenir';
+      default:
+        return '';
+    }
+  }
+
+  String? _yearlyPerMonthLine(ProductModel yearly) {
+    if (yearly.rawPrice <= 0) return null;
+    final perMonth = yearly.rawPrice / 12.0;
+    final s = _formatMoneyLikePriceString(yearly.price, perMonth);
+    return 'Yaklaşık $s / ay';
+  }
+
+  /// Pazarlama indirim yüzdesi (kart rozetleri).
   String _discountBadge({
     required ProductModel current,
     required double referenceRawPrice,
@@ -275,60 +341,39 @@ class _PlansSection extends StatelessWidget {
           final selectedProductId = context.watch<SelectedPlanCubit>().state;
           final isPurchasing =
               context.watch<PurchaseCubit>().state is PurchaseInProgress;
-          final useIosOverrides = !kIsWeb && Platform.isIOS;
-          final isAndroid = !kIsWeb && Platform.isAndroid;
-          // iOS sabit TRY; Android mağaza fiyatı + aynı pazarlama indirim yüzdeleri.
-          final useFixedDiscountUi = useIosOverrides || isAndroid;
 
           final weekly = _findProduct(products, 'weekly_premium');
           final monthly = _findProduct(products, 'monthly_premium');
           final yearly = _findProduct(products, 'yearly_premium');
 
-          // iOS (App Store) tarafında fiyatlar farklı olabiliyor; UI'da sabit göster.
-          // Yüzdeleri kullanıcıya göre sabit kabul ediyoruz.
-          final weeklyPriceText = useIosOverrides ? 'TRY 30.00' : weekly.price;
-          final monthlyPriceText =
-              useIosOverrides ? 'TRY 80.00' : monthly.price;
-          final yearlyPriceText = useIosOverrides ? 'TRY 600.00' : yearly.price;
+          final weeklyPriceText = weekly.price;
+          final monthlyPriceText = monthly.price;
+          final yearlyPriceText = yearly.price;
 
-          // İndirim oranları (iOS): haftalık %25, aylık %40, yıllık %50
-          // Eski fiyat = yeni fiyat / (1 - indirimOranı)
-          final weeklyOldPriceText = useIosOverrides
-              ? 'TRY 40.00'
-              : (isAndroid ? _strikethroughPriceForPlan(weekly, 0.25) : null);
-          final monthlyOldPriceText = useIosOverrides
-              ? 'TRY 133.33'
-              : (isAndroid ? _strikethroughPriceForPlan(monthly, 0.40) : null);
-          final yearlyOldPriceText = useIosOverrides
-              ? 'TRY 1200.00'
-              : (isAndroid ? _strikethroughPriceForPlan(yearly, 0.50) : null);
+          // Sabit pazarlama indirim yüzdeleri + üstü çizili "eski fiyat" (ham fiyata göre).
+          final weeklyOldPriceText = _strikethroughPriceForPlan(weekly, 0.25);
+          final monthlyOldPriceText = _strikethroughPriceForPlan(monthly, 0.40);
+          final yearlyOldPriceText = _strikethroughPriceForPlan(yearly, 0.50);
 
-          final weeklyDiscount = useFixedDiscountUi
-              ? '%25'
-              : _discountBadge(
-                  current: weekly,
-                  referenceRawPrice: monthly.rawPrice / 4,
-                );
-          final monthlyDiscount = useFixedDiscountUi
-              ? '%40'
-              : _discountBadge(
-                  current: monthly,
-                  referenceRawPrice: weekly.rawPrice * 4,
-                );
-          final yearlyDiscount = useFixedDiscountUi
-              ? '%50'
-              : _discountBadge(
-                  current: yearly,
-                  referenceRawPrice: monthly.rawPrice * 12,
-                );
-
-          return ListView(
+          final weeklyDiscount = _discountBadge(
+            current: weekly,
+            referenceRawPrice: monthly.rawPrice / 4,
+          );
+          final monthlyDiscount = _discountBadge(
+            current: monthly,
+            referenceRawPrice: weekly.rawPrice * 4,
+          );
+          final yearlyUnit = _yearlyPerMonthLine(yearly);
+          return Column(
             children: [
               PlanTile(
-                title: _getTitle(weekly.productId),
+                title: _subscriptionDisplayTitle(weekly),
+                periodLine: _periodLine(weekly.productId),
+                unitPriceLine: null,
                 price: weeklyPriceText,
                 oldPrice: weeklyOldPriceText,
-                discountPercentage: weeklyDiscount,
+                discountPercentage:
+                    weeklyDiscount.isNotEmpty ? weeklyDiscount : '%25',
                 selected: selectedProductId == weekly.productId,
                 onTap: () {
                   if (!isPurchasing) {
@@ -339,10 +384,13 @@ class _PlansSection extends StatelessWidget {
                 },
               ),
               PlanTile(
-                title: _getTitle(monthly.productId),
+                title: _subscriptionDisplayTitle(monthly),
+                periodLine: _periodLine(monthly.productId),
+                unitPriceLine: null,
                 price: monthlyPriceText,
                 oldPrice: monthlyOldPriceText,
-                discountPercentage: monthlyDiscount,
+                discountPercentage:
+                    monthlyDiscount.isNotEmpty ? monthlyDiscount : '%40',
                 selected: selectedProductId == monthly.productId,
                 onTap: () {
                   if (!isPurchasing) {
@@ -353,10 +401,12 @@ class _PlansSection extends StatelessWidget {
                 },
               ),
               PlanTile(
-                title: _getTitle(yearly.productId),
+                title: _subscriptionDisplayTitle(yearly),
+                periodLine: _periodLine(yearly.productId),
+                unitPriceLine: yearlyUnit,
                 price: yearlyPriceText,
                 oldPrice: yearlyOldPriceText,
-                discountPercentage: yearlyDiscount,
+                discountPercentage: '%50',
                 selected: selectedProductId == yearly.productId,
                 onTap: () {
                   if (!isPurchasing) {
@@ -379,6 +429,8 @@ class _PlansSection extends StatelessWidget {
 
 class PlanTile extends StatelessWidget {
   final String title;
+  final String periodLine;
+  final String? unitPriceLine;
   final String price;
   final String? oldPrice;
   final String discountPercentage;
@@ -388,6 +440,8 @@ class PlanTile extends StatelessWidget {
   const PlanTile({
     super.key,
     required this.title,
+    required this.periodLine,
+    this.unitPriceLine,
     required this.price,
     required this.discountPercentage,
     required this.onTap,
@@ -400,52 +454,109 @@ class PlanTile extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Stack(
+        clipBehavior: Clip.none,
         children: [
           Container(
-            margin: EdgeInsets.only(bottom: 8.h),
-            padding: EdgeInsets.all(16.w),
+            margin: EdgeInsets.only(bottom: 10.h),
+            padding: EdgeInsets.fromLTRB(14.w, 14.h, 14.w, 14.h),
             decoration: BoxDecoration(
-              color:
-                  selected ? const Color(0xFFE3F2FD) : const Color(0xFFF5F5F5),
-              borderRadius: BorderRadius.circular(14.r),
+              color: selected
+                  ? AppColors.primary.withValues(alpha: 0.08)
+                  : Colors.white,
+              borderRadius: BorderRadius.circular(16.r),
               border: Border.all(
-                color: selected ? Colors.orange : Colors.grey.shade300,
-                width: 2.w,
+                color: selected ? AppColors.primary : Colors.grey.shade300,
+                width: selected ? 2.w : 1,
               ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.04),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ],
             ),
             child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  title,
-                  style: TextStyle(
-                    fontSize: 18.sp,
-                    fontWeight: selected ? FontWeight.bold : FontWeight.w600,
-                  ),
-                ),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    SizedBox(height: 4.h),
-                    if (oldPrice != null && oldPrice!.isNotEmpty)
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
                       Text(
-                        oldPrice!,
+                        title,
                         style: TextStyle(
-                          fontSize: 13.sp,
-                          color: Colors.grey.shade600,
-                          decoration: TextDecoration.lineThrough,
-                          fontWeight: FontWeight.w700,
+                          fontSize: 17.sp,
+                          fontWeight:
+                              selected ? FontWeight.w800 : FontWeight.w600,
+                          color: Colors.black87,
                         ),
                       ),
-                    Text(
-                      price,
-                      style: TextStyle(
-                        fontSize: 18.sp,
-                        color: Colors.orange,
-                        fontWeight: FontWeight.bold,
+                      SizedBox(height: 4.h),
+                      Text(
+                        periodLine,
+                        style: TextStyle(
+                          fontSize: 12.sp,
+                          height: 1.25,
+                          color: Colors.grey.shade700,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                SizedBox(width: 8.w),
+                Expanded(
+                  child: Padding(
+                    padding: EdgeInsets.only(
+                      top: discountPercentage.isNotEmpty ? 22.h : 0,
+                    ),
+                    child: Align(
+                      alignment: Alignment.centerRight,
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          if (oldPrice != null && oldPrice!.isNotEmpty)
+                            Padding(
+                              padding: EdgeInsets.only(bottom: 2.h),
+                              child: Text(
+                                oldPrice!,
+                              textAlign: TextAlign.end,
+                              style: TextStyle(
+                                fontSize: 12.sp,
+                                color: Colors.grey.shade500,
+                                decoration: TextDecoration.lineThrough,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                          Text(
+                            price,
+                            textAlign: TextAlign.end,
+                            style: TextStyle(
+                              fontSize: 17.sp,
+                              color: AppColors.primary,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                          if (unitPriceLine != null &&
+                              unitPriceLine!.isNotEmpty) ...[
+                            SizedBox(height: 4.h),
+                            Text(
+                              unitPriceLine!,
+                              textAlign: TextAlign.end,
+                              style: TextStyle(
+                                fontSize: 11.sp,
+                                color: Colors.grey.shade600,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ],
                       ),
                     ),
-                  ],
+                  ),
                 ),
               ],
             ),
@@ -479,6 +590,119 @@ class PlanTile extends StatelessWidget {
   }
 }
 
+/* ---------------- LEGAL (satın alma öncesi) ---------------- */
+
+class _LegalLinksCard extends StatelessWidget {
+  const _LegalLinksCard();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 14.h),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16.r),
+        border: Border.all(color: AppColors.primary.withValues(alpha: 0.25)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.gavel_outlined, size: 20.sp, color: AppColors.primary),
+              SizedBox(width: 8.w),
+              Expanded(
+                child: Text(
+                  'Gizlilik Politikası ve Kullanım Şartları (EULA)',
+                  style: TextStyle(
+                    fontSize: 15.sp,
+                    fontWeight: FontWeight.w800,
+                    color: Colors.black87,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          SizedBox(height: 6.h),
+          Text(
+            'Satın almadan önce belgeleri açabilirsiniz. Kullanım Şartları (EULA); lisans, abonelik ve mağaza koşullarını içerir.',
+            style: TextStyle(
+              fontSize: 12.sp,
+              height: 1.35,
+              color: Colors.grey.shade700,
+            ),
+          ),
+          SizedBox(height: 12.h),
+          Row(
+            children: [
+              Expanded(
+                child: _LegalLinkButton(
+                  label: 'Gizlilik Politikası',
+                  url: LegalUrls.privacyPolicy,
+                ),
+              ),
+              SizedBox(width: 10.w),
+              Expanded(
+                child: _LegalLinkButton(
+                  label: 'Kullanım Şartları (EULA)',
+                  url: LegalUrls.termsOfUse,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _LegalLinkButton extends StatelessWidget {
+  final String label;
+  final String url;
+
+  const _LegalLinkButton({required this.label, required this.url});
+
+  Future<void> _open() async {
+    final uri = Uri.parse(url);
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: AppColors.primary.withValues(alpha: 0.1),
+      borderRadius: BorderRadius.circular(12.r),
+      child: InkWell(
+        onTap: _open,
+        borderRadius: BorderRadius.circular(12.r),
+        child: Padding(
+          padding: EdgeInsets.symmetric(vertical: 12.h, horizontal: 8.w),
+          child: Text(
+            label,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 13.sp,
+              fontWeight: FontWeight.w700,
+              color: AppColors.primary,
+              decoration: TextDecoration.underline,
+              decorationColor: AppColors.primary,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 /* ---------------- PAYMENT INFO ---------------- */
 
 class _PaymentInfoText extends StatelessWidget {
@@ -487,9 +711,9 @@ class _PaymentInfoText extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Text(
-      "  Satın alma onayından sonra ödeme hesabınızdan tahsil edilir. Abonelik, dönem sonunda otomatik olarak yenilenir; yenilemeyi istediğiniz zaman iptal edebilirsiniz.",
+      "Fiyatlar App Store veya Google Play’de görünen güncel tutardır. Satın alma onayından sonra ödeme hesabınızdan tahsil edilir. Abonelik, seçtiğiniz dönem sonunda otomatik yenilenir; iptal ve yönetim için mağaza hesabınızı kullanın.",
       textAlign: TextAlign.center,
-      style: TextStyle(fontSize: 14.sp),
+      style: TextStyle(fontSize: 13.sp, height: 1.4, color: Colors.grey.shade800),
     );
   }
 }
@@ -550,7 +774,7 @@ class _StartButtonState extends State<_StartButton>
                           }
                         },
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.green,
+                    backgroundColor: AppColors.secondary,
                     padding: EdgeInsets.symmetric(vertical: 16.h),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12.r),
@@ -579,70 +803,6 @@ class _StartButtonState extends State<_StartButton>
           },
         );
       },
-    );
-  }
-}
-
-/* ---------------- FOOTER ---------------- */
-
-class _BottomLinks extends StatelessWidget {
-  const _BottomLinks();
-
-  @override
-  Widget build(BuildContext context) {
-    return const _PolicyLinks();
-  }
-}
-
-class _PolicyLinks extends StatelessWidget {
-  const _PolicyLinks();
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: const [
-        _LinkText(
-          text: "Gizlilik Politikası",
-          url:
-              "https://docs.google.com/document/d/1G6uFDjzhF0GtXdVZeABFYKrQEsTZ-ZRhXvSzqsLGJqY/edit?usp=sharing",
-        ),
-        SizedBox(width: 20),
-        _LinkText(
-          text: "Kullanım Şartları",
-          url:
-              "https://docs.google.com/document/d/1IYbsnY3x3O1CeM2XHA_nRe97OuJXK_QP9up2aGOw_c0/edit?usp=sharing",
-        ),
-      ],
-    );
-  }
-}
-
-class _LinkText extends StatelessWidget {
-  final String text;
-  final String url;
-
-  const _LinkText({required this.text, required this.url});
-
-  Future<void> _openLink() async {
-    final uri = Uri.parse(url);
-    if (await canLaunchUrl(uri)) {
-      await launchUrl(uri, mode: LaunchMode.externalApplication);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: _openLink,
-      child: Text(
-        text,
-        style: TextStyle(
-          fontSize: 14.sp,
-          color: Colors.blue,
-          decoration: TextDecoration.underline,
-        ),
-      ),
     );
   }
 }

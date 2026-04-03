@@ -40,7 +40,7 @@ class _DeckContentLoader extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       color: AppColors.allDecksBackground,
-      height: SizeHelper.categoryDeckHeight,
+      height: SizeHelper.categoryDeckHeight(context),
       child: BlocBuilder<BilimVeGenelKDecksCubit, BilimVeGenelKDecksState>(
         builder: (context, state) {
           if (state is BilimVeGenelKDecksLoading) {
@@ -73,13 +73,15 @@ class _DeckListView extends StatelessWidget {
   Widget build(BuildContext context) {
     return ListView.builder(
       scrollDirection: Axis.horizontal,
-      padding: EdgeInsets.symmetric(horizontal: 16.w),
+      padding: EdgeInsets.symmetric(
+        horizontal: SizeHelper.categoryListHorizontalPad,
+      ),
       itemCount: decks.length,
       itemBuilder: (context, index) {
         return Padding(
-          padding: EdgeInsets.only(right: 8.w),
+          padding: EdgeInsets.only(right: SizeHelper.categoryListGap),
           child: SizedBox(
-            width: SizeHelper.categoryDeckWidth,
+            width: SizeHelper.categoryDeckWidth(context),
             child: DeckCover(deck: decks[index]),
           ),
         );

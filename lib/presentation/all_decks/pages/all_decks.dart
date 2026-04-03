@@ -18,6 +18,8 @@ class AllDecksPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isTablet = MediaQuery.sizeOf(context).shortestSide >= 600;
+
     // Tüm değişmez widget'ları bir listede toplayarak kod tekrarını azaltıyoruz.
     // Listeyi const yapamıyoruz çünkü içindeki özel widget'ların const constructor'ı olmayabilir
     // (örneğin stateful ise veya dışarıdan veri alıyorsa).
@@ -42,11 +44,12 @@ class AllDecksPage extends StatelessWidget {
       backgroundColor: AppColors.allDecksBackground,
       appBar: AppBar(
         automaticallyImplyLeading: false,
+        toolbarHeight: isTablet ? 70.h : kToolbarHeight,
         title: Text(
           "Tahmin Et!",
-          style: TextStyle(fontSize: 30.sp),
-        ), // OPTİMİZASYON 2: Text widget'ı const yapıldı.
-        actions: const [], // OPTİMİZASYON 3: Boş actions listesi const yapıldı.
+          style: TextStyle(fontSize: isTablet ? 32.sp : 30.sp),
+        ),
+        actions: const [],
       ),
       // OPTİMİZASYON 4: SingleChildScrollView yerine ListView kullanılır.
       // ListView, elemanları ekranda göründükçe oluşturma (lazy building) konusunda

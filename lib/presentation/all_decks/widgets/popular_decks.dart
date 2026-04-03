@@ -1,3 +1,4 @@
+import 'package:ben_kimim/common/helper/size/size_helper.dart';
 import 'package:ben_kimim/common/widget/deck/deck_cover.dart';
 import 'package:ben_kimim/domain/deck/entity/deck.dart';
 import 'package:ben_kimim/presentation/all_decks/bloc/popular_decks_cubit.dart';
@@ -22,7 +23,7 @@ class PopularDecks extends StatelessWidget {
           }
 
           if (state is PopularDecksLoaded) {
-            return _buildDeckList(state.decks);
+            return _buildDeckList(context, state.decks);
           }
 
           if (state is PopularDecksLoadFailure) {
@@ -48,7 +49,7 @@ class PopularDecks extends StatelessWidget {
     );
   }
 
-  Widget _buildDeckList(List<DeckEntity> deckList) {
+  Widget _buildDeckList(BuildContext context, List<DeckEntity> deckList) {
     if (deckList.isEmpty) {
       return Center(
         child: Text(
@@ -58,8 +59,12 @@ class PopularDecks extends StatelessWidget {
       );
     }
 
+    final isTablet = MediaQuery.sizeOf(context).shortestSide >= 600;
+
     return Padding(
-      padding: EdgeInsets.symmetric(horizontal: 16.w),
+      padding: EdgeInsets.symmetric(
+        horizontal: SizeHelper.categoryListHorizontalPad,
+      ),
       child: GridView.builder(
         shrinkWrap: true,
         physics: const NeverScrollableScrollPhysics(),
@@ -67,7 +72,8 @@ class PopularDecks extends StatelessWidget {
           crossAxisCount: 2,
           crossAxisSpacing: 10.w,
           mainAxisSpacing: 10.h,
-          childAspectRatio: 0.6,
+          // Tablet: daha alçak oran = hücre daha uzun = kartlar daha büyük görünür.
+          childAspectRatio: isTablet ? 0.52 : 0.6,
         ),
         itemCount: deckList.length,
         itemBuilder: (context, index) {
