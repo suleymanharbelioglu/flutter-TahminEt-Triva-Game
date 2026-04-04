@@ -1,12 +1,15 @@
+import 'dart:async';
 import 'dart:math';
 import 'package:ben_kimim/common/navigator/app_navigator.dart';
 import 'package:ben_kimim/core/configs/ads/admob_ids.dart';
 import 'package:ben_kimim/core/configs/theme/app_color.dart';
 import 'package:ben_kimim/presentation/bottom_nav/bloc/bottom_nav_cubit.dart';
 import 'package:ben_kimim/presentation/game/bloc/display_current_card_list_cubit.dart';
+import 'package:ben_kimim/presentation/game/bloc/game_interstitial_counter_cubit.dart';
 import 'package:ben_kimim/presentation/game/bloc/timer_cubit.dart';
 import 'package:ben_kimim/presentation/phone_to_forhead/page/phone_to_forhead.dart';
 import 'package:ben_kimim/presentation/premium/bloc/is_user_premium_cubit.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -30,67 +33,101 @@ class _DeckFlipState extends State<DeckFlip>
   bool isFront = true;
   bool canTap = false;
 
-  InterstitialAd? _interstitialAd;
-  bool _isAdReady = false;
-
   @override
   void initState() {
     super.initState();
     _initAnimation();
     SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
     _autoFlip();
-    _loadInterstitial();
   }
 
-  void _loadInterstitial() {
+  Future<void> _loadAndShowGameStartInterstitial() async {
     final adUnitId = AdMobIds.gameStartInterstitial;
-    if (adUnitId.isEmpty) return;
+    if (adUnitId.isEmpty) {
+      _navigateToGamePage();
+      return;
+    }
+
+    final completer = Completer<void>();
+    var settled = false;
+
+    void goToGameOnce() {
+      if (settled) return;
+      settled = true;
+      if (!completer.isCompleted) {
+        if (mounted) {
+          _navigateToGamePage();
+        }
+        completer.complete();
+      }
+    }
+
+    final loadTimeout = Timer(AdMobIds.interstitialLoadTimeout, goToGameOnce);
 
     InterstitialAd.load(
       adUnitId: adUnitId,
       request: const AdRequest(),
       adLoadCallback: InterstitialAdLoadCallback(
         onAdLoaded: (ad) {
-          _interstitialAd = ad;
-          _isAdReady = true;
-          _interstitialAd?.fullScreenContentCallback =
-              FullScreenContentCallback(
-            onAdDismissedFullScreenContent: (ad) {
-              ad.dispose();
-              _navigateToGamePage();
+          loadTimeout.cancel();
+          if (settled) {
+            ad.dispose();
+            return;
+          }
+          ad.fullScreenContentCallback = FullScreenContentCallback(
+            onAdDismissedFullScreenContent: (a) {
+              a.dispose();
+              goToGameOnce();
             },
-            onAdFailedToShowFullScreenContent: (ad, error) {
-              ad.dispose();
-              _navigateToGamePage();
+            onAdFailedToShowFullScreenContent: (a, error) {
+              a.dispose();
+              goToGameOnce();
             },
           );
+          // Bir frame sonra göster: SDK / activity hazır olsun (özellikle soğuk açılış).
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (!mounted) {
+              ad.dispose();
+              if (!completer.isCompleted) {
+                settled = true;
+                completer.complete();
+              }
+              return;
+            }
+            if (settled) {
+              ad.dispose();
+              return;
+            }
+            ad.show();
+          });
         },
         onAdFailedToLoad: (error) {
-          _isAdReady = false;
-          print("Interstitial failed to load: $error");
+          loadTimeout.cancel();
+          if (kDebugMode) {
+            print('Interstitial failed to load: $error');
+          }
+          goToGameOnce();
         },
       ),
     );
+
+    return completer.future;
   }
 
-  Future<void> _showInterstitialThenNavigate() async {
+  Future<void> _startGameWithInterstitialPolicy() async {
+    final showAd = context
+        .read<GameInterstitialCounterCubit>()
+        .consumeGameStartAndShouldShowInterstitial();
+
     if (context.read<IsUserPremiumCubit>().state) {
       _navigateToGamePage();
       return;
     }
-
-    // Reklam yüklenene kadar bekle
-    int attempts = 0;
-    while (_interstitialAd == null && attempts < 20) {
-      // max 5 saniye bekle
-      await Future.delayed(const Duration(milliseconds: 100));
-      attempts++;
-    }
-    if (_interstitialAd != null && _isAdReady) {
-      _interstitialAd?.show();
-    } else {
+    if (!showAd) {
       _navigateToGamePage();
+      return;
     }
+    await _loadAndShowGameStartInterstitial();
   }
 
   void _navigateToGamePage() {
@@ -100,7 +137,6 @@ class _DeckFlipState extends State<DeckFlip>
   @override
   void dispose() {
     _controller.dispose();
-    _interstitialAd?.dispose();
     super.dispose();
   }
 
@@ -511,7 +547,7 @@ class _DeckFlipState extends State<DeckFlip>
                     await context
                         .read<DisplayCurrentCardListCubit>()
                         .loadCardNames(widget.deck.namesFilePath);
-                    await _showInterstitialThenNavigate();
+                    await _startGameWithInterstitialPolicy();
                   }
                 },
                 child: Container(

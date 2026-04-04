@@ -1,6 +1,14 @@
 import 'package:flutter/foundation.dart';
 
 class AdMobIds {
+  /// [InterstitialAd.load] yanıtı gelmezse oyuna geçiş için üst süre (reklam gösterilmeden).
+  static const Duration interstitialLoadTimeout = Duration(seconds: 3);
+
+  /// **Android — tek anahtar (tüm reklam türleri):**
+  /// - `true` → oyun başı / tekrar interstitial + ana sayfa + sonuç banner hepsi Google **test** birimi.
+  /// - `false` → hepsi **üretim** birimleri. Mağaza / iç yayın öncesi mutlaka `false`.
+  static const bool useTestAdsOnAndroid = false;
+
   /// true iken iOS'ta Google test birim ID'leri kullanılır.
   /// Yayın / gerçek reklamlar için false (üretim birimleri).
   static const bool _useTestAdsOnIOS = false;
@@ -34,13 +42,20 @@ class AdMobIds {
   static bool get _useTestIos =>
       !kIsWeb && defaultTargetPlatform == TargetPlatform.iOS && _useTestAdsOnIOS;
 
+  static bool get _useTestAndroid =>
+      !kIsWeb &&
+      defaultTargetPlatform == TargetPlatform.android &&
+      useTestAdsOnAndroid;
+
   static String get gameStartInterstitial {
     if (kIsWeb) return '';
     switch (defaultTargetPlatform) {
       case TargetPlatform.iOS:
         return _useTestIos ? _testInterstitial : _prodGameStartInterstitialIOS;
       case TargetPlatform.android:
-        return _prodGameStartInterstitialAndroid;
+        return _useTestAndroid
+            ? _testInterstitial
+            : _prodGameStartInterstitialAndroid;
       default:
         return '';
     }
@@ -52,7 +67,9 @@ class AdMobIds {
       case TargetPlatform.iOS:
         return _useTestIos ? _testInterstitial : _prodPlayAgainInterstitialIOS;
       case TargetPlatform.android:
-        return _prodPlayAgainInterstitialAndroid;
+        return _useTestAndroid
+            ? _testInterstitial
+            : _prodPlayAgainInterstitialAndroid;
       default:
         return '';
     }
@@ -64,7 +81,7 @@ class AdMobIds {
       case TargetPlatform.iOS:
         return _useTestIos ? _testBanner : _prodHomePageBannerIOS;
       case TargetPlatform.android:
-        return _prodHomePageBannerAndroid;
+        return _useTestAndroid ? _testBanner : _prodHomePageBannerAndroid;
       default:
         return '';
     }
@@ -76,7 +93,7 @@ class AdMobIds {
       case TargetPlatform.iOS:
         return _useTestIos ? _testBanner : _prodGameResultBannerIOS;
       case TargetPlatform.android:
-        return _prodGameResultBannerAndroid;
+        return _useTestAndroid ? _testBanner : _prodGameResultBannerAndroid;
       default:
         return '';
     }

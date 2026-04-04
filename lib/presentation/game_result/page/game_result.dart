@@ -1,9 +1,12 @@
+import 'dart:async';
+
 import 'package:ben_kimim/common/navigator/app_navigator.dart';
 import 'package:ben_kimim/core/configs/ads/admob_ids.dart';
 import 'package:ben_kimim/core/configs/theme/app_color.dart';
 import 'package:ben_kimim/data/card/model/card_result.dart';
 import 'package:ben_kimim/presentation/bottom_nav/page/bottom_nav.dart';
 import 'package:ben_kimim/presentation/game/bloc/current_name_cubit.dart';
+import 'package:ben_kimim/presentation/game/bloc/game_interstitial_counter_cubit.dart';
 import 'package:ben_kimim/presentation/game/bloc/score_cubit.dart';
 import 'package:ben_kimim/presentation/game_result/bloc/result_cubit.dart';
 import 'package:ben_kimim/presentation/no_internet/page/no_internet.dart';
@@ -30,9 +33,6 @@ class _GameResultPageState extends State<GameResultPage> {
   double _scrollPosition = 0.0;
   double _scrollMax = 1.0;
 
-  InterstitialAd? _interstitialAd;
-  bool _isAdReady = false;
-
   @override
   void initState() {
     super.initState();
@@ -49,9 +49,6 @@ class _GameResultPageState extends State<GameResultPage> {
         ),
       );
     }
-
-    // Interstitial yükle
-    WidgetsBinding.instance.addPostFrameCallback((_) => _loadInterstitial());
   }
 
   Widget _withInternetListener(Widget child) {
@@ -74,50 +71,73 @@ class _GameResultPageState extends State<GameResultPage> {
     );
   }
 
-  void _loadInterstitial() {
-    if (context.read<IsUserPremiumCubit>().state) return;
+  Future<void> _loadAndShowPlayAgainInterstitial() async {
     final adUnitId = AdMobIds.playAgainInterstitial;
-    if (adUnitId.isEmpty) return;
+    if (adUnitId.isEmpty) {
+      _navigateToGamePage();
+      return;
+    }
+
+    final completer = Completer<void>();
+    var settled = false;
+
+    void goToGameOnce() {
+      if (settled) return;
+      settled = true;
+      if (!completer.isCompleted) {
+        if (mounted) {
+          _navigateToGamePage();
+        }
+        completer.complete();
+      }
+    }
+
+    final loadTimeout = Timer(AdMobIds.interstitialLoadTimeout, goToGameOnce);
 
     InterstitialAd.load(
       adUnitId: adUnitId,
       request: const AdRequest(),
       adLoadCallback: InterstitialAdLoadCallback(
         onAdLoaded: (ad) {
-          _interstitialAd = ad;
-          _isAdReady = true;
-          _interstitialAd?.fullScreenContentCallback =
-              FullScreenContentCallback(
-            onAdDismissedFullScreenContent: (ad) {
-              ad.dispose();
-              _navigateToGamePage();
+          loadTimeout.cancel();
+          if (settled) {
+            ad.dispose();
+            return;
+          }
+          ad.fullScreenContentCallback = FullScreenContentCallback(
+            onAdDismissedFullScreenContent: (a) {
+              a.dispose();
+              goToGameOnce();
             },
-            onAdFailedToShowFullScreenContent: (ad, error) {
-              ad.dispose();
-              _navigateToGamePage();
+            onAdFailedToShowFullScreenContent: (a, error) {
+              a.dispose();
+              goToGameOnce();
             },
           );
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (!mounted) {
+              ad.dispose();
+              if (!completer.isCompleted) {
+                settled = true;
+                completer.complete();
+              }
+              return;
+            }
+            if (settled) {
+              ad.dispose();
+              return;
+            }
+            ad.show();
+          });
         },
-        onAdFailedToLoad: (_) => _isAdReady = false,
+        onAdFailedToLoad: (_) {
+          loadTimeout.cancel();
+          goToGameOnce();
+        },
       ),
     );
-  }
 
-  Future<void> _showInterstitialThenNavigate() async {
-    if (context.read<IsUserPremiumCubit>().state) {
-      return _navigateToGamePage();
-    }
-
-    int attempts = 0;
-    while (_interstitialAd == null && attempts < 20) {
-      await Future.delayed(const Duration(milliseconds: 100));
-      attempts++;
-    }
-
-    if (_isAdReady)
-      _interstitialAd?.show();
-    else
-      _navigateToGamePage();
+    return completer.future;
   }
 
   void _navigateToGamePage() =>
@@ -136,8 +156,24 @@ class _GameResultPageState extends State<GameResultPage> {
   }
 
   Future<void> _onPlayAgainPressed(BuildContext context) async {
-    await _showInterstitialThenNavigate();
-    if (mounted) _resetCubits(context);
+    final showAd = context
+        .read<GameInterstitialCounterCubit>()
+        .consumeGameStartAndShouldShowInterstitial();
+
+    if (context.read<IsUserPremiumCubit>().state) {
+      _navigateToGamePage();
+      if (mounted) _resetCubits(context);
+      return;
+    }
+    if (!showAd) {
+      _navigateToGamePage();
+      if (mounted) _resetCubits(context);
+      return;
+    }
+
+    await _loadAndShowPlayAgainInterstitial();
+    if (!context.mounted) return;
+    _resetCubits(context);
   }
 
   void _onScroll() {
@@ -153,7 +189,6 @@ class _GameResultPageState extends State<GameResultPage> {
   @override
   void dispose() {
     _scrollController.dispose();
-    _interstitialAd?.dispose();
     super.dispose();
   }
 

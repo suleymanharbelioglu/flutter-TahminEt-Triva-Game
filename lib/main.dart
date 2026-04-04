@@ -14,6 +14,7 @@ import 'package:ben_kimim/presentation/all_decks/bloc/yemeker_decks_cubit.dart';
 import 'package:ben_kimim/presentation/bottom_nav/bloc/bottom_nav_cubit.dart';
 import 'package:ben_kimim/presentation/game/bloc/current_name_cubit.dart';
 import 'package:ben_kimim/presentation/game/bloc/display_current_card_list_cubit.dart';
+import 'package:ben_kimim/presentation/game/bloc/game_interstitial_counter_cubit.dart';
 import 'package:ben_kimim/presentation/game/bloc/score_cubit.dart';
 import 'package:ben_kimim/presentation/game/bloc/timer_cubit.dart';
 import 'package:ben_kimim/presentation/game_result/bloc/result_cubit.dart';
@@ -60,15 +61,18 @@ Future<void> main() async {
 
   await initializeDependencies();
 
+  // AdMob: runApp öncesi await — aksi halde ilk interstitial/banner yükleme sıklıkla başarısız olur.
+  try {
+    await MobileAds.instance.initialize();
+  } catch (e, st) {
+    debugPrint('MobileAds.initialize failed: $e\n$st');
+  }
+
   runApp(const MyApp());
 
   // iOS ATT (Tracking izni): ilk açılışta bir kez sorulur.
   // Not: İzin verilmezse reklamlar yine gösterilebilir, sadece kişiselleştirme etkilenir.
   _requestATTIfNeeded();
-
-  // AdMob (iOS'ta Info.plist içinde GADApplicationIdentifier gerekir).
-  // UI'yı bloklamaması için runApp'ten sonra başlatıyoruz.
-  MobileAds.instance.initialize();
 }
 
 Future<void> _requestATTIfNeeded() async {
@@ -143,6 +147,7 @@ class MyApp extends StatelessWidget {
             BlocProvider(create: (context) => InternetConnectionCubit()),
             BlocProvider(create: (context) => PurchaseCubit()),
             BlocProvider(create: (context) => AdsCounterCubit()),
+            BlocProvider(create: (context) => GameInterstitialCounterCubit()),
           ],
           child: MaterialApp(
             debugShowCheckedModeBanner: false,

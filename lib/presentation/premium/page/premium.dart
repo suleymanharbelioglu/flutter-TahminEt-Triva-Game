@@ -233,6 +233,9 @@ class _FeatureRow extends StatelessWidget {
 class _PlansSection extends StatelessWidget {
   const _PlansSection();
 
+  /// Google Play aylık kart: eski fiyat = güncel / (1 - bu). Örn. 60 TL, %50 → 120 TL.
+  static const double _androidMonthlyMarketingDiscountFraction = 0.50;
+
   String _normalizeId(String productId) => productId.split(':').first;
 
   ProductModel _findProduct(List<ProductModel> products, String baseProductId) {
@@ -307,6 +310,17 @@ class _PlansSection extends StatelessWidget {
     return _formatMoneyLikePriceString(product.price, oldRaw);
   }
 
+  String? _monthlyOldPriceTextForPlatform(ProductModel monthly) {
+    if (monthly.rawPrice <= 0) return null;
+    if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
+      return _strikethroughPriceForPlan(
+        monthly,
+        _androidMonthlyMarketingDiscountFraction,
+      );
+    }
+    return _strikethroughPriceForPlan(monthly, 0.40);
+  }
+
   String _formatMoneyLikePriceString(String templatePrice, double value) {
     final t = templatePrice.trim();
     if (t.contains('₺')) {
@@ -352,17 +366,26 @@ class _PlansSection extends StatelessWidget {
 
           // Sabit pazarlama indirim yüzdeleri + üstü çizili "eski fiyat" (ham fiyata göre).
           final weeklyOldPriceText = _strikethroughPriceForPlan(weekly, 0.25);
-          final monthlyOldPriceText = _strikethroughPriceForPlan(monthly, 0.40);
+          final monthlyOldPriceText = _monthlyOldPriceTextForPlatform(monthly);
           final yearlyOldPriceText = _strikethroughPriceForPlan(yearly, 0.50);
+
+          final isAndroid = !kIsWeb &&
+              defaultTargetPlatform == TargetPlatform.android;
 
           final weeklyDiscount = _discountBadge(
             current: weekly,
             referenceRawPrice: monthly.rawPrice / 4,
           );
-          final monthlyDiscount = _discountBadge(
-            current: monthly,
-            referenceRawPrice: weekly.rawPrice * 4,
-          );
+          final monthlyDiscount = isAndroid
+              ? _discountBadge(
+                  current: monthly,
+                  referenceRawPrice: monthly.rawPrice /
+                      (1.0 - _androidMonthlyMarketingDiscountFraction),
+                )
+              : _discountBadge(
+                  current: monthly,
+                  referenceRawPrice: weekly.rawPrice * 4,
+                );
           final yearlyUnit = _yearlyPerMonthLine(yearly);
           return Column(
             children: [
@@ -389,8 +412,9 @@ class _PlansSection extends StatelessWidget {
                 unitPriceLine: null,
                 price: monthlyPriceText,
                 oldPrice: monthlyOldPriceText,
-                discountPercentage:
-                    monthlyDiscount.isNotEmpty ? monthlyDiscount : '%40',
+                discountPercentage: monthlyDiscount.isNotEmpty
+                    ? monthlyDiscount
+                    : (isAndroid ? '%50' : '%40'),
                 selected: selectedProductId == monthly.productId,
                 onTap: () {
                   if (!isPurchasing) {
