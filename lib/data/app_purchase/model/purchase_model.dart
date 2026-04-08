@@ -34,28 +34,44 @@ class PurchaseModel {
   }) {
     String baseId(String id) => id.split(':').first;
 
-    // RevenueCat `activeSubscriptions` sırası garanti değil; UI'da tutarlı bir plan
-    // göstermek için öncelik belirliyoruz.
-    final activeBaseIds = info.activeSubscriptions.map(baseId).toSet();
-    const priority = <String>[
-      // Production product ids
-      'yearly_premium',
-      'monthly_premium',
-      'weekly_premium',
-      // Test Store product ids (RevenueCat test store)
-      'yearly',
-      'monthly',
-      'weekly',
-    ];
+    // Öncelik: aktif entitlement'ın productIdentifier'ı.
+    // Böylece uygulama aç-kapa sonrası yanlış plan fiyatı gösterme (örn. weekly yerine monthly) engellenir.
+    const preferredEntitlementIds = <String>['VIP', 'premium'];
+    String chosenBaseId = '';
 
-    final chosenBaseId = priority.firstWhere(
-      activeBaseIds.contains,
-      orElse: () => activeBaseIds.isNotEmpty ? activeBaseIds.first : '',
-    );
+    for (final entId in preferredEntitlementIds) {
+      final ent = info.entitlements.active[entId];
+      if (ent != null && ent.productIdentifier.isNotEmpty) {
+        chosenBaseId = baseId(ent.productIdentifier);
+        break;
+      }
+    }
+
+    // Fallback: entitlement id eşleşmezse aktif aboneliklerden seç.
+    if (chosenBaseId.isEmpty) {
+      // RevenueCat `activeSubscriptions` sırası garanti değil.
+      final activeBaseIds = info.activeSubscriptions.map(baseId).toSet();
+      const priority = <String>[
+        // Production product ids
+        'yearly_premium',
+        'monthly_premium',
+        'weekly_premium',
+        // Test Store product ids (RevenueCat test store)
+        'yearly',
+        'monthly',
+        'weekly',
+      ];
+      chosenBaseId = priority.firstWhere(
+        activeBaseIds.contains,
+        orElse: () => activeBaseIds.isNotEmpty ? activeBaseIds.first : '',
+      );
+    }
 
     // RevenueCat purchaseDate bilgisi her platformda farklı alanlarda olabilir.
     // En güvenlisi: model oluşturulduğu anı kullanıp UI’yı beslemek.
-    final isActive = isActiveOverride ?? activeBaseIds.isNotEmpty;
+    final isActive = isActiveOverride ??
+        info.entitlements.active.isNotEmpty ||
+        info.activeSubscriptions.isNotEmpty;
     return PurchaseModel(
       productId: isActive ? chosenBaseId : '',
       isActive: isActive,

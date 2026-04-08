@@ -40,7 +40,9 @@ class AdMobIds {
       'ca-app-pub-6970688308215711/4715714592';
 
   static bool get _useTestIos =>
-      !kIsWeb && defaultTargetPlatform == TargetPlatform.iOS && _useTestAdsOnIOS;
+      !kIsWeb &&
+      defaultTargetPlatform == TargetPlatform.iOS &&
+      _useTestAdsOnIOS;
 
   static bool get _useTestAndroid =>
       !kIsWeb &&
@@ -99,4 +101,3 @@ class AdMobIds {
     }
   }
 }
-

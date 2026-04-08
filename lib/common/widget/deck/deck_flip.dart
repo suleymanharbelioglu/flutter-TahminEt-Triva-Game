@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:math';
 import 'package:ben_kimim/common/navigator/app_navigator.dart';
+import 'package:ben_kimim/core/ads/interstitial_ad_cache.dart';
 import 'package:ben_kimim/core/configs/ads/admob_ids.dart';
 import 'package:ben_kimim/core/configs/theme/app_color.dart';
 import 'package:ben_kimim/presentation/bottom_nav/bloc/bottom_nav_cubit.dart';
@@ -9,14 +10,12 @@ import 'package:ben_kimim/presentation/game/bloc/game_interstitial_counter_cubit
 import 'package:ben_kimim/presentation/game/bloc/timer_cubit.dart';
 import 'package:ben_kimim/presentation/phone_to_forhead/page/phone_to_forhead.dart';
 import 'package:ben_kimim/presentation/premium/bloc/is_user_premium_cubit.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:ben_kimim/domain/deck/entity/deck.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
-import 'package:google_mobile_ads/google_mobile_ads.dart';
 
 class DeckFlip extends StatefulWidget {
   final DeckEntity deck;
@@ -39,79 +38,8 @@ class _DeckFlipState extends State<DeckFlip>
     _initAnimation();
     SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
     _autoFlip();
-  }
-
-  Future<void> _loadAndShowGameStartInterstitial() async {
-    final adUnitId = AdMobIds.gameStartInterstitial;
-    if (adUnitId.isEmpty) {
-      _navigateToGamePage();
-      return;
-    }
-
-    final completer = Completer<void>();
-    var settled = false;
-
-    void goToGameOnce() {
-      if (settled) return;
-      settled = true;
-      if (!completer.isCompleted) {
-        if (mounted) {
-          _navigateToGamePage();
-        }
-        completer.complete();
-      }
-    }
-
-    final loadTimeout = Timer(AdMobIds.interstitialLoadTimeout, goToGameOnce);
-
-    InterstitialAd.load(
-      adUnitId: adUnitId,
-      request: const AdRequest(),
-      adLoadCallback: InterstitialAdLoadCallback(
-        onAdLoaded: (ad) {
-          loadTimeout.cancel();
-          if (settled) {
-            ad.dispose();
-            return;
-          }
-          ad.fullScreenContentCallback = FullScreenContentCallback(
-            onAdDismissedFullScreenContent: (a) {
-              a.dispose();
-              goToGameOnce();
-            },
-            onAdFailedToShowFullScreenContent: (a, error) {
-              a.dispose();
-              goToGameOnce();
-            },
-          );
-          // Bir frame sonra göster: SDK / activity hazır olsun (özellikle soğuk açılış).
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (!mounted) {
-              ad.dispose();
-              if (!completer.isCompleted) {
-                settled = true;
-                completer.complete();
-              }
-              return;
-            }
-            if (settled) {
-              ad.dispose();
-              return;
-            }
-            ad.show();
-          });
-        },
-        onAdFailedToLoad: (error) {
-          loadTimeout.cancel();
-          if (kDebugMode) {
-            print('Interstitial failed to load: $error');
-          }
-          goToGameOnce();
-        },
-      ),
-    );
-
-    return completer.future;
+    // Preload: kullanıcıyı bekletmeyelim. Hazırsa anında gösteririz.
+    AppInterstitials.gameStart.preload(AdMobIds.gameStartInterstitial);
   }
 
   Future<void> _startGameWithInterstitialPolicy() async {
@@ -127,7 +55,17 @@ class _DeckFlipState extends State<DeckFlip>
       _navigateToGamePage();
       return;
     }
-    await _loadAndShowGameStartInterstitial();
+
+    // Hazırsa göster; değilse bekleme, direkt oyuna geç ve bir sonraki için preload et.
+    final shown = AppInterstitials.gameStart.showIfReady(onDone: () {
+      if (mounted) _navigateToGamePage();
+      // bir sonraki tur için tekrar hazırla
+      AppInterstitials.gameStart.preload(AdMobIds.gameStartInterstitial);
+    });
+    if (!shown) {
+      AppInterstitials.gameStart.preload(AdMobIds.gameStartInterstitial);
+      _navigateToGamePage();
+    }
   }
 
   void _navigateToGamePage() {

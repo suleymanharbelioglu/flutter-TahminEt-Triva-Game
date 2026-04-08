@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:ben_kimim/common/navigator/app_navigator.dart';
+import 'package:ben_kimim/core/ads/interstitial_ad_cache.dart';
 import 'package:ben_kimim/core/configs/ads/admob_ids.dart';
 import 'package:ben_kimim/core/configs/theme/app_color.dart';
 import 'package:ben_kimim/data/card/model/card_result.dart';
@@ -49,6 +50,9 @@ class _GameResultPageState extends State<GameResultPage> {
         ),
       );
     }
+
+    // Preload: tekrar oyna interstitial'ını önceden hazırla.
+    AppInterstitials.playAgain.preload(AdMobIds.playAgainInterstitial);
   }
 
   Widget _withInternetListener(Widget child) {
@@ -69,75 +73,6 @@ class _GameResultPageState extends State<GameResultPage> {
       },
       child: child,
     );
-  }
-
-  Future<void> _loadAndShowPlayAgainInterstitial() async {
-    final adUnitId = AdMobIds.playAgainInterstitial;
-    if (adUnitId.isEmpty) {
-      _navigateToGamePage();
-      return;
-    }
-
-    final completer = Completer<void>();
-    var settled = false;
-
-    void goToGameOnce() {
-      if (settled) return;
-      settled = true;
-      if (!completer.isCompleted) {
-        if (mounted) {
-          _navigateToGamePage();
-        }
-        completer.complete();
-      }
-    }
-
-    final loadTimeout = Timer(AdMobIds.interstitialLoadTimeout, goToGameOnce);
-
-    InterstitialAd.load(
-      adUnitId: adUnitId,
-      request: const AdRequest(),
-      adLoadCallback: InterstitialAdLoadCallback(
-        onAdLoaded: (ad) {
-          loadTimeout.cancel();
-          if (settled) {
-            ad.dispose();
-            return;
-          }
-          ad.fullScreenContentCallback = FullScreenContentCallback(
-            onAdDismissedFullScreenContent: (a) {
-              a.dispose();
-              goToGameOnce();
-            },
-            onAdFailedToShowFullScreenContent: (a, error) {
-              a.dispose();
-              goToGameOnce();
-            },
-          );
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (!mounted) {
-              ad.dispose();
-              if (!completer.isCompleted) {
-                settled = true;
-                completer.complete();
-              }
-              return;
-            }
-            if (settled) {
-              ad.dispose();
-              return;
-            }
-            ad.show();
-          });
-        },
-        onAdFailedToLoad: (_) {
-          loadTimeout.cancel();
-          goToGameOnce();
-        },
-      ),
-    );
-
-    return completer.future;
   }
 
   void _navigateToGamePage() =>
@@ -171,7 +106,14 @@ class _GameResultPageState extends State<GameResultPage> {
       return;
     }
 
-    await _loadAndShowPlayAgainInterstitial();
+    final shown = AppInterstitials.playAgain.showIfReady(onDone: () {
+      if (mounted) _navigateToGamePage();
+      AppInterstitials.playAgain.preload(AdMobIds.playAgainInterstitial);
+    });
+    if (!shown) {
+      AppInterstitials.playAgain.preload(AdMobIds.playAgainInterstitial);
+      _navigateToGamePage();
+    }
     if (!context.mounted) return;
     _resetCubits(context);
   }

@@ -51,7 +51,17 @@ class PurchaseCubit extends Cubit<PurchaseState> {
         );
         customerInfo = await Purchases.purchaseStoreProduct(storeProduct);
       }
-      final model = PurchaseModel.fromCustomerInfo(customerInfo);
+      // Sonuç ekranında doğru planı göstermek için:
+      // - RevenueCat aktif aboneliği bazen birden fazla döndürebilir
+      // - PurchaseModel.fromCustomerInfo öncelik sırasına göre "seçilmiş" bir plan döndürür
+      // Bu yüzden, satın alınan planı (base) açıkça yazıyoruz.
+      final fromInfo = PurchaseModel.fromCustomerInfo(customerInfo);
+      final model = PurchaseModel(
+        productId: base,
+        isActive: fromInfo.isActive,
+        purchaseDate: DateTime.now(),
+        isSubscription: true,
+      );
 
       if (model.isActive) {
         emit(PurchaseSuccess(purchase: model));
@@ -76,10 +86,5 @@ class PurchaseCubit extends Cubit<PurchaseState> {
     } catch (e) {
       emit(PurchaseFailure(message: 'Error restoring purchases: $e'));
     }
-  }
-
-  @override
-  Future<void> close() {
-    return super.close();
   }
 }

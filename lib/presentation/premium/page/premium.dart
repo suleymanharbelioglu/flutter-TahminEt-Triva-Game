@@ -81,50 +81,82 @@ class PremiumPage extends StatelessWidget {
 
           return Scaffold(
             backgroundColor: const Color(0xFFF5F7FA),
-            body: SafeArea(
-              child: LayoutBuilder(
-                builder: (context, constraints) {
-                  return SingleChildScrollView(
-                    padding: EdgeInsets.symmetric(
-                      horizontal: 20.w,
-                      vertical: 12.h,
-                    ),
-                    child: ConstrainedBox(
-                      constraints: BoxConstraints(
-                        minHeight: constraints.maxHeight,
-                      ),
-                      child: IntrinsicHeight(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            const _HeaderSection(),
-                            SizedBox(height: 16.h),
-                            const _FeaturesSection(),
-                            SizedBox(height: 20.h),
-                            Text(
-                              'Plan seçin',
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                fontSize: 16.sp,
-                                fontWeight: FontWeight.w700,
-                                color: AppColors.primary,
-                              ),
-                            ),
-                            SizedBox(height: 10.h),
-                            const _PlansSection(),
-                            SizedBox(height: 18.h),
-                            const _LegalLinksCard(),
-                            SizedBox(height: 14.h),
-                            const _PaymentInfoText(),
-                            SizedBox(height: 12.h),
-                            const _StartButton(),
-                            SizedBox(height: 16.h),
-                          ],
-                        ),
+            body: BlocListener<PurchaseCubit, PurchaseState>(
+              listenWhen: (previous, current) =>
+                  current is PurchaseSuccess || current is PurchaseFailure,
+              listener: (context, state) {
+                if (state is PurchaseSuccess) {
+                  context.read<PremiumStatusCubit>().checkPremiumStatus();
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        'Üyelik bilgisi güncellendi.',
+                        style: TextStyle(fontSize: 14.sp),
                       ),
                     ),
                   );
-                },
+                } else if (state is PurchaseFailure) {
+                  final m = state.message;
+                  final friendly = m.toLowerCase().contains('no active plan')
+                      ? 'Bu hesapla aktif abonelik bulunamadı. Daha önce satın aldıysanız mağaza hesabınızla giriş yapın.'
+                      : m;
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        friendly,
+                        style: TextStyle(fontSize: 14.sp),
+                      ),
+                    ),
+                  );
+                }
+              },
+              child: SafeArea(
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    return SingleChildScrollView(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: 20.w,
+                        vertical: 12.h,
+                      ),
+                      child: ConstrainedBox(
+                        constraints: BoxConstraints(
+                          minHeight: constraints.maxHeight,
+                        ),
+                        child: IntrinsicHeight(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              const _HeaderSection(),
+                              SizedBox(height: 16.h),
+                              const _FeaturesSection(),
+                              SizedBox(height: 20.h),
+                              Text(
+                                'Plan seçin',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  fontSize: 16.sp,
+                                  fontWeight: FontWeight.w700,
+                                  color: AppColors.primary,
+                                ),
+                              ),
+                              SizedBox(height: 10.h),
+                              const _PlansSection(),
+                              SizedBox(height: 18.h),
+                              const _LegalLinksCard(),
+                              SizedBox(height: 14.h),
+                              const _PaymentInfoText(),
+                              SizedBox(height: 12.h),
+                              const _StartButton(),
+                              SizedBox(height: 8.h),
+                              const _RestorePurchasesButton(),
+                              SizedBox(height: 16.h),
+                            ],
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                ),
               ),
             ),
           );
@@ -175,7 +207,7 @@ class _HeaderSection extends StatelessWidget {
         SizedBox(height: 6.h),
         Padding(
           padding: EdgeInsets.symmetric(horizontal: 12.w),
-          child:         Text(
+          child: Text(
             'Hizmet: Tahmin Et VIP — otomatik yenilenen abonelik. Her dönemde: tüm destelere erişim ve reklamsız kullanım.',
             textAlign: TextAlign.center,
             style: TextStyle(
@@ -369,8 +401,8 @@ class _PlansSection extends StatelessWidget {
           final monthlyOldPriceText = _monthlyOldPriceTextForPlatform(monthly);
           final yearlyOldPriceText = _strikethroughPriceForPlan(yearly, 0.50);
 
-          final isAndroid = !kIsWeb &&
-              defaultTargetPlatform == TargetPlatform.android;
+          final isAndroid =
+              !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
 
           final weeklyDiscount = _discountBadge(
             current: weekly,
@@ -546,15 +578,15 @@ class PlanTile extends StatelessWidget {
                               padding: EdgeInsets.only(bottom: 2.h),
                               child: Text(
                                 oldPrice!,
-                              textAlign: TextAlign.end,
-                              style: TextStyle(
-                                fontSize: 12.sp,
-                                color: Colors.grey.shade500,
-                                decoration: TextDecoration.lineThrough,
-                                fontWeight: FontWeight.w600,
+                                textAlign: TextAlign.end,
+                                style: TextStyle(
+                                  fontSize: 12.sp,
+                                  color: Colors.grey.shade500,
+                                  decoration: TextDecoration.lineThrough,
+                                  fontWeight: FontWeight.w600,
+                                ),
                               ),
                             ),
-                          ),
                           Text(
                             price,
                             textAlign: TextAlign.end,
@@ -737,7 +769,37 @@ class _PaymentInfoText extends StatelessWidget {
     return Text(
       "Fiyatlar App Store veya Google Play’de görünen güncel tutardır. Satın alma onayından sonra ödeme hesabınızdan tahsil edilir. Abonelik, seçtiğiniz dönem sonunda otomatik yenilenir; iptal ve yönetim için mağaza hesabınızı kullanın.",
       textAlign: TextAlign.center,
-      style: TextStyle(fontSize: 13.sp, height: 1.4, color: Colors.grey.shade800),
+      style:
+          TextStyle(fontSize: 13.sp, height: 1.4, color: Colors.grey.shade800),
+    );
+  }
+}
+
+/// Apple 3.1.1: Geri yükleme yalnızca kullanıcı bu düğmeye bastığında.
+class _RestorePurchasesButton extends StatelessWidget {
+  const _RestorePurchasesButton();
+
+  @override
+  Widget build(BuildContext context) {
+    return BlocBuilder<PurchaseCubit, PurchaseState>(
+      builder: (context, state) {
+        final loading = state is PurchaseInProgress;
+        return Center(
+          child: TextButton(
+            onPressed:
+                loading ? null : () => context.read<PurchaseCubit>().restore(),
+            child: Text(
+              'Satın Alımları Geri Yükle',
+              style: TextStyle(
+                fontSize: 15.sp,
+                fontWeight: FontWeight.w600,
+                color: AppColors.primary,
+                decoration: TextDecoration.underline,
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 }

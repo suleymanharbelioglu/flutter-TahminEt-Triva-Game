@@ -81,7 +81,7 @@ flutter:
     - assets/images/deck_images/
     - assets/data/
     - assets/data/names/
-    - assets/legal/gizlilik_politikasi_tr.txt
+    
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images

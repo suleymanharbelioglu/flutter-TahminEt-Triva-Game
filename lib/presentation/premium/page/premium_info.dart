@@ -28,20 +28,22 @@ class PremiumInfoPage extends StatelessWidget {
       body: Container(
         decoration: _buildBackgroundGradient(),
         child: SafeArea(
-          child: Padding(
-            padding: EdgeInsets.all(20.w),
-            child: Column(
-              children: [
-                _buildHeader(),
-                SizedBox(height: 8.h),
-                _buildPriceTag(),
-                SizedBox(height: 25.h),
-                _buildInfoCard(),
-                const Spacer(),
-                _buildFooterMessage(),
-                SizedBox(height: 20.h),
-              ],
+          child: ListView(
+            padding: EdgeInsets.fromLTRB(
+              20.w,
+              20.w,
+              20.w,
+              20.w + MediaQuery.of(context).padding.bottom,
             ),
+            children: [
+              _buildHeader(),
+              SizedBox(height: 8.h),
+              Center(child: _buildPriceTag()),
+              SizedBox(height: 25.h),
+              _buildInfoCard(),
+              SizedBox(height: 18.h),
+              Center(child: _buildFooterMessage()),
+            ],
           ),
         ),
       ),
