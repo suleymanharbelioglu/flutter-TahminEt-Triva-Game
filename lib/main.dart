@@ -63,6 +63,20 @@ Future<void> main() async {
 
   // AdMob: runApp öncesi await — aksi halde ilk interstitial/banner yükleme sıklıkla başarısız olur.
   try {
+    if (kDebugMode) {
+      // iOS gerçek cihaz logunda önerilen test device id'yi ekle (No ad to show → test'e zorla).
+      // Not: Uygulama sil-yükle yapınca bu id değişebilir.
+      await MobileAds.instance.updateRequestConfiguration(
+        RequestConfiguration(
+          testDeviceIds: [
+            // iOS (logdan)
+            'f227aa022f3f2850308c622f36a4782e',
+            // Android (eski debug id)
+            'D09DE3465F0FF17A7C7AA0997E40DFCA',
+          ],
+        ),
+      );
+    }
     await MobileAds.instance.initialize();
   } catch (e, st) {
     debugPrint('MobileAds.initialize failed: $e\n$st');

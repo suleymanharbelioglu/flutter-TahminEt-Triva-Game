@@ -15,6 +15,7 @@ import 'package:ben_kimim/core/configs/legal_urls.dart';
 import 'package:ben_kimim/core/configs/theme/app_color.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
+import 'dart:io' show Platform;
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -653,6 +654,7 @@ class _LegalLinksCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final termsUrl = Platform.isIOS ? LegalUrls.appleStandardEula : LegalUrls.termsOfUse;
     return Container(
       padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 14.h),
       decoration: BoxDecoration(
@@ -708,7 +710,7 @@ class _LegalLinksCard extends StatelessWidget {
               Expanded(
                 child: _LegalLinkButton(
                   label: 'Kullanım Şartları (EULA)',
-                  url: LegalUrls.termsOfUse,
+                  url: termsUrl,
                 ),
               ),
             ],

@@ -7,4 +7,8 @@ class LegalUrls {
 
   static const String termsOfUse =
       'https://docs.google.com/document/d/1IYbsnY3x3O1CeM2XHA_nRe97OuJXK_QP9up2aGOw_c0/edit?usp=sharing';
+
+  /// Apple standart EULA (Terms of Use)
+  static const String appleStandardEula =
+      'https://www.apple.com/legal/internet-services/itunes/dev/stdeula/';
 }
