@@ -28,7 +28,7 @@ class HowToPlayPage extends StatelessWidget {
           children: [
             InstructionItem(
               description:
-                  "  Oynamak istediğin desteyi seç. Telefonu alnına yerleştir. Deste kartındaki kurallara göre kelimeyi tahmin et!",
+                  "  Oynamak istediğin desteyi seç. Telefonu alnına yerleştir. Arkadaşların, deste açıklamasına göre anlatsın, canlandırsın ya da mırıldansın. Sen de kelimeyi tahmin et!",
               imagePath: AppImages.game,
             ),
             SizedBox(height: 40.h),

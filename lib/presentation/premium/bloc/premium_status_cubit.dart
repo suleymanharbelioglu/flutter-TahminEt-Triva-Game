@@ -1,6 +1,7 @@
 import 'package:ben_kimim/data/app_purchase/model/purchase_model.dart';
 import 'package:ben_kimim/core/configs/revenuecat/revenuecat_config.dart';
 import 'package:ben_kimim/presentation/premium/bloc/premium_status_state.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:purchases_flutter/purchases_flutter.dart';
 
@@ -24,7 +25,14 @@ class PremiumStatusCubit extends Cubit<PremiumStatusState> {
       _emitFromCustomerInfo(info);
       _listenCustomerInfo();
     } catch (e) {
-      emit(PremiumStatusFailure("Premium kontrol edilirken hata: $e"));
+      if (kDebugMode) {
+        debugPrint('PremiumStatusCubit.checkPremiumStatus failed: $e');
+      }
+      emit(
+        PremiumStatusFailure(
+          'Üyelik durumu şu an doğrulanamadı. Lütfen internet bağlantınızı kontrol edip tekrar deneyin.',
+        ),
+      );
     }
   }
 

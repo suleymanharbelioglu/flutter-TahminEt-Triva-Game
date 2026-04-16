@@ -1,4 +1,5 @@
 import 'package:ben_kimim/core/configs/theme/app_color.dart';
+import 'package:ben_kimim/core/rate_app/rate_app_service.dart';
 import 'package:ben_kimim/presentation/all_decks/widgets/bilim_ve_genelk_decks.dart';
 import 'package:ben_kimim/presentation/all_decks/widgets/canlandir_decks.dart';
 import 'package:ben_kimim/presentation/all_decks/widgets/ciz_decks.dart';
@@ -49,7 +50,35 @@ class AllDecksPage extends StatelessWidget {
           "Tahmin Et!",
           style: TextStyle(fontSize: isTablet ? 32.sp : 30.sp),
         ),
-        actions: const [],
+        actions: [
+          FutureBuilder<bool>(
+            future: RateAppService.hasRated(),
+            builder: (context, snapshot) {
+              if (snapshot.data == true) {
+                return const SizedBox.shrink();
+              }
+              return Padding(
+                padding: const EdgeInsets.only(right: 6),
+                child: IconButton(
+                  tooltip: 'Uygulamayı Puanla',
+                  onPressed: () async {
+                    final didShow = await RateAppService.showRateSheet(
+                      context,
+                      force: true,
+                    );
+                    if (didShow && context.mounted) {
+                      (context as Element).markNeedsBuild();
+                    }
+                  },
+                  icon: const Icon(
+                    Icons.star_rounded,
+                    color: Color(0xFFFFC107),
+                  ),
+                ),
+              );
+            },
+          ),
+        ],
       ),
       // OPTİMİZASYON 4: SingleChildScrollView yerine ListView kullanılır.
       // ListView, elemanları ekranda göründükçe oluşturma (lazy building) konusunda

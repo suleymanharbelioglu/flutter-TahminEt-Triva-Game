@@ -1,10 +1,15 @@
 import 'dart:async';
 import 'dart:io' show Platform;
 import 'package:ben_kimim/common/helper/sound/sound.dart';
+import 'package:ben_kimim/core/ads/interstitial_ad_cache.dart';
+import 'package:ben_kimim/core/configs/ads/admob_ids.dart';
 import 'package:ben_kimim/core/configs/theme/app_color.dart';
+import 'package:ben_kimim/core/rate_app/rate_app_service.dart';
 import 'package:ben_kimim/presentation/bottom_nav/page/bottom_nav.dart';
+import 'package:ben_kimim/presentation/game/bloc/game_interstitial_counter_cubit.dart';
 import 'package:ben_kimim/presentation/game_result/bloc/result_cubit.dart';
 import 'package:ben_kimim/presentation/game_result/page/game_result.dart';
+import 'package:ben_kimim/presentation/premium/bloc/is_user_premium_cubit.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -49,6 +54,18 @@ class _GamePageState extends State<GamePage> with TickerProviderStateMixin {
     _setupAnimations();
     _loadInitialNameAndStartTimer();
     _startSensorListening();
+
+    // Oyun başladığında, bu oyunun sonunda reklam çıkacaksa interstitial'ı şimdiden hazırla.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      if (context.read<IsUserPremiumCubit>().state) return;
+      final nextGameEndCount =
+          context.read<GameInterstitialCounterCubit>().state + 1;
+      final willShowAtEnd = nextGameEndCount.isEven; // yok → var → yok → var …
+      if (willShowAtEnd) {
+        AppInterstitials.gameStart.preload(AdMobIds.gameStartInterstitial);
+      }
+    });
   }
 
   @override
@@ -133,7 +150,38 @@ class _GamePageState extends State<GamePage> with TickerProviderStateMixin {
 
     await SoundHelper.playTimeUp();
 
-    Future.delayed(const Duration(seconds: 1), () {
+    Future.delayed(const Duration(seconds: 1), () async {
+      if (!mounted) return;
+
+      // Tamamlanan oyun sayısını kaydet (puanlama dialog'u için).
+      await RateAppService.recordGameCompleted();
+
+      if (!context.read<IsUserPremiumCubit>().state) {
+        final shouldShow = context
+            .read<GameInterstitialCounterCubit>()
+            .consumeGameStartAndShouldShowInterstitial();
+        if (shouldShow) {
+          // Hazırsa göster; değilse kısa bir süre bekle, yine olmazsa result'a geç.
+          AppInterstitials.gameStart.preload(AdMobIds.gameStartInterstitial);
+          final deadline =
+              DateTime.now().add(AdMobIds.interstitialLoadTimeout);
+          while (mounted && DateTime.now().isBefore(deadline)) {
+            final shown = AppInterstitials.gameStart.showIfReady(onDone: () {
+              if (!mounted) return;
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(builder: (_) => const GameResultPage()),
+              );
+            });
+            if (shown) return;
+            await Future<void>.delayed(const Duration(milliseconds: 250));
+          }
+        } else {
+          // Sayaç tüketildi; reklam çıkmayacak tur.
+        }
+      }
+
+      if (!mounted) return;
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(builder: (_) => const GameResultPage()),

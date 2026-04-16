@@ -1,13 +1,12 @@
 import 'dart:async';
 
 import 'package:ben_kimim/common/navigator/app_navigator.dart';
-import 'package:ben_kimim/core/ads/interstitial_ad_cache.dart';
 import 'package:ben_kimim/core/configs/ads/admob_ids.dart';
 import 'package:ben_kimim/core/configs/theme/app_color.dart';
+import 'package:ben_kimim/core/rate_app/rate_app_service.dart';
 import 'package:ben_kimim/data/card/model/card_result.dart';
 import 'package:ben_kimim/presentation/bottom_nav/page/bottom_nav.dart';
 import 'package:ben_kimim/presentation/game/bloc/current_name_cubit.dart';
-import 'package:ben_kimim/presentation/game/bloc/game_interstitial_counter_cubit.dart';
 import 'package:ben_kimim/presentation/game/bloc/score_cubit.dart';
 import 'package:ben_kimim/presentation/game_result/bloc/result_cubit.dart';
 import 'package:ben_kimim/presentation/no_internet/page/no_internet.dart';
@@ -51,8 +50,10 @@ class _GameResultPageState extends State<GameResultPage> {
       );
     }
 
-    // Preload: tekrar oyna interstitial'ını önceden hazırla.
-    AppInterstitials.playAgain.preload(AdMobIds.playAgainInterstitial);
+    // Result ekranı açılınca (uygun şartlarda) puanlama dialog'u göster.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      RateAppService.maybeShowRateSheet(context);
+    });
   }
 
   Widget _withInternetListener(Widget child) {
@@ -91,29 +92,14 @@ class _GameResultPageState extends State<GameResultPage> {
   }
 
   Future<void> _onPlayAgainPressed(BuildContext context) async {
-    final showAd = context
-        .read<GameInterstitialCounterCubit>()
-        .consumeGameStartAndShouldShowInterstitial();
-
     if (context.read<IsUserPremiumCubit>().state) {
       _navigateToGamePage();
       if (mounted) _resetCubits(context);
       return;
     }
-    if (!showAd) {
-      _navigateToGamePage();
-      if (mounted) _resetCubits(context);
-      return;
-    }
 
-    final shown = AppInterstitials.playAgain.showIfReady(onDone: () {
-      if (mounted) _navigateToGamePage();
-      AppInterstitials.playAgain.preload(AdMobIds.playAgainInterstitial);
-    });
-    if (!shown) {
-      AppInterstitials.playAgain.preload(AdMobIds.playAgainInterstitial);
-      _navigateToGamePage();
-    }
+    // Interstitial artık Result sayfasında değil, oyun bittikten sonra Result'a geçmeden önce gösteriliyor.
+    _navigateToGamePage();
     if (!context.mounted) return;
     _resetCubits(context);
   }

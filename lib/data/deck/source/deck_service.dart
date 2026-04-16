@@ -49,9 +49,34 @@ class DeckServiceImpl extends DeckService {
   Future<Either<String, List<DeckEntity>>> getPopularDecks() async {
     try {
       final result = await _loadDecks();
-      final list =
-          result.where((d) => d.categoryNameList.contains('Popular')).toList();
-      return Right(list);
+      final entries = <MapEntry<int, DeckEntity>>[];
+      for (var i = 0; i < result.length; i++) {
+        final d = result[i];
+        if (d.categoryNameList.contains('Popular')) {
+          entries.add(MapEntry(i, d)); // i = orijinal sırası (stable sort için)
+        }
+      }
+
+      int priority(DeckEntity d) {
+        // "En üstteki Hayvanlar" listesinde Başkentler'i öne al.
+        switch (d.deckName) {
+          case 'Hayvanlar':
+            return 0;
+          case 'Başkentler':
+            return 1;
+          default:
+            return 100;
+        }
+      }
+
+      entries.sort((a, b) {
+        final pa = priority(a.value);
+        final pb = priority(b.value);
+        if (pa != pb) return pa.compareTo(pb);
+        return a.key.compareTo(b.key); // geri kalanlar JSON sırasını korur
+      });
+
+      return Right(entries.map((e) => e.value).toList());
     } catch (e) {
       return const Left("Popular deck list problem");
     }

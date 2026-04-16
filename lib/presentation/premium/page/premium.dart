@@ -1,6 +1,5 @@
 import 'package:ben_kimim/common/widget/alert/secret_dialog.dart';
 import 'package:ben_kimim/data/app_purchase/model/product_model.dart';
-import 'package:ben_kimim/data/app_purchase/model/purchase_model.dart';
 import 'package:ben_kimim/presentation/premium/bloc/load_products_cubit.dart';
 import 'package:ben_kimim/presentation/premium/bloc/load_products_state.dart';
 import 'package:ben_kimim/presentation/premium/bloc/premium_counter_cubit.dart';
@@ -9,7 +8,6 @@ import 'package:ben_kimim/presentation/premium/bloc/premium_status_state.dart';
 import 'package:ben_kimim/presentation/premium/bloc/purchase_cubit.dart';
 import 'package:ben_kimim/presentation/premium/bloc/purchase_state.dart';
 import 'package:ben_kimim/presentation/premium/bloc/selected_plan_cubit.dart';
-import 'package:ben_kimim/presentation/premium/bloc/unlock_premium.dart';
 import 'package:ben_kimim/presentation/premium/page/premium_info.dart';
 import 'package:ben_kimim/core/configs/legal_urls.dart';
 import 'package:ben_kimim/core/configs/theme/app_color.dart';
@@ -23,7 +21,11 @@ import 'package:url_launcher/url_launcher.dart';
 class PremiumPage extends StatelessWidget {
   const PremiumPage({super.key});
 
-  String _normalizeId(String productId) => productId.split(':').first;
+  String _normalizeId(String productId) {
+    final beforeColon = productId.split(':').first;
+    final dotParts = beforeColon.split('.');
+    return dotParts.isNotEmpty ? dotParts.last : beforeColon;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -35,43 +37,22 @@ class PremiumPage extends StatelessWidget {
       ],
       child: BlocBuilder<PremiumStatusCubit, PremiumStatusState>(
         builder: (context, state) {
-          final unlock = context.watch<UnlockPremiumCubit>().state;
-
-          if (state is PremiumActive || unlock == true) {
+          if (state is PremiumActive) {
             final productsState = context.read<LoadProductsCubit>().state;
 
             ProductModel? product;
-            PurchaseModel? purchase;
+            final purchase = state.purchase;
 
-            if (state is PremiumActive) {
-              purchase = state.purchase;
-
-              if (productsState is LoadProductsSuccess &&
-                  productsState.products.isNotEmpty) {
-                product = productsState.products.firstWhere(
-                  (p) =>
-                      _normalizeId(p.productId) ==
-                      _normalizeId(state.purchase.productId),
-                  orElse: () => productsState.products.first,
-                );
-              } else {
-                product = null;
-              }
+            if (productsState is LoadProductsSuccess &&
+                productsState.products.isNotEmpty) {
+              product = productsState.products.firstWhere(
+                (p) =>
+                    _normalizeId(p.productId) ==
+                    _normalizeId(state.purchase.productId),
+                orElse: () => productsState.products.first,
+              );
             } else {
-              product = ProductModel(
-                productId: "test_premium",
-                title: "Test Premium",
-                description: "Google Play inceleme modu için test ürünü",
-                price: "₺0,00",
-                rawPrice: 0.0,
-              );
-
-              purchase = PurchaseModel(
-                productId: "test_premium",
-                isActive: true,
-                purchaseDate: DateTime.now(),
-                isSubscription: true,
-              );
+              product = null;
             }
 
             return PremiumInfoPage(
@@ -79,6 +60,9 @@ class PremiumPage extends StatelessWidget {
               product: product,
             );
           }
+
+          final statusErrorMessage =
+              state is PremiumStatusFailure ? state.message : null;
 
           return Scaffold(
             backgroundColor: const Color(0xFFF5F7FA),
@@ -91,20 +75,16 @@ class PremiumPage extends StatelessWidget {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
                       content: Text(
-                        'Üyelik bilgisi güncellendi.',
+                        'Üyelik güncellendi.',
                         style: TextStyle(fontSize: 14.sp),
                       ),
                     ),
                   );
                 } else if (state is PurchaseFailure) {
-                  final m = state.message;
-                  final friendly = m.toLowerCase().contains('no active plan')
-                      ? 'Bu hesapla aktif abonelik bulunamadı. Daha önce satın aldıysanız mağaza hesabınızla giriş yapın.'
-                      : m;
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
                       content: Text(
-                        friendly,
+                        state.message,
                         style: TextStyle(fontSize: 14.sp),
                       ),
                     ),
@@ -130,6 +110,87 @@ class PremiumPage extends StatelessWidget {
                               const _HeaderSection(),
                               SizedBox(height: 16.h),
                               const _FeaturesSection(),
+                              if (statusErrorMessage != null) ...[
+                                SizedBox(height: 14.h),
+                                Container(
+                                  padding: EdgeInsets.symmetric(
+                                    horizontal: 14.w,
+                                    vertical: 12.h,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white,
+                                    borderRadius: BorderRadius.circular(16.r),
+                                    border: Border.all(
+                                      color: Colors.orange.withValues(alpha: 0.25),
+                                    ),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withValues(alpha: 0.04),
+                                        blurRadius: 10,
+                                        offset: const Offset(0, 3),
+                                      ),
+                                    ],
+                                  ),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                                    children: [
+                                      Row(
+                                        children: [
+                                          Icon(
+                                            Icons.info_outline,
+                                            color: Colors.orange.shade800,
+                                            size: 22.sp,
+                                          ),
+                                          SizedBox(width: 8.w),
+                                          Expanded(
+                                            child: Text(
+                                              'Üyelik doğrulanamadı',
+                                              style: TextStyle(
+                                                fontSize: 15.sp,
+                                                fontWeight: FontWeight.w800,
+                                                color: Colors.black87,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      SizedBox(height: 8.h),
+                                      Text(
+                                        statusErrorMessage,
+                                        style: TextStyle(
+                                          fontSize: 13.sp,
+                                          height: 1.35,
+                                          color: Colors.grey.shade800,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                      SizedBox(height: 10.h),
+                                      OutlinedButton(
+                                        onPressed: () => context
+                                            .read<PremiumStatusCubit>()
+                                            .checkPremiumStatus(),
+                                        style: OutlinedButton.styleFrom(
+                                          side: BorderSide(
+                                            color: AppColors.primary.withValues(alpha: 0.35),
+                                          ),
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.circular(12.r),
+                                          ),
+                                          padding: EdgeInsets.symmetric(vertical: 10.h),
+                                        ),
+                                        child: Text(
+                                          'Tekrar dene',
+                                          style: TextStyle(
+                                            fontSize: 14.sp,
+                                            fontWeight: FontWeight.w800,
+                                            color: AppColors.primary,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
                               SizedBox(height: 20.h),
                               Text(
                                 'Plan seçin',
@@ -269,7 +330,11 @@ class _PlansSection extends StatelessWidget {
   /// Google Play aylık kart: eski fiyat = güncel / (1 - bu). Örn. 60 TL, %50 → 120 TL.
   static const double _androidMonthlyMarketingDiscountFraction = 0.50;
 
-  String _normalizeId(String productId) => productId.split(':').first;
+  String _normalizeId(String productId) {
+    final beforeColon = productId.split(':').first;
+    final dotParts = beforeColon.split('.');
+    return dotParts.isNotEmpty ? dotParts.last : beforeColon;
+  }
 
   ProductModel _findProduct(List<ProductModel> products, String baseProductId) {
     return products.firstWhere(
@@ -381,7 +446,71 @@ class _PlansSection extends StatelessWidget {
           return const Center(child: CircularProgressIndicator());
         }
         if (state is LoadProductsFailure) {
-          return Center(child: Text("Hata: ${state.message}"));
+          return Container(
+            padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 14.h),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16.r),
+              border: Border.all(color: Colors.red.withValues(alpha: 0.22)),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.04),
+                  blurRadius: 10,
+                  offset: const Offset(0, 3),
+                ),
+              ],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
+                  children: [
+                    Icon(Icons.info_outline, color: Colors.red, size: 22.sp),
+                    SizedBox(width: 8.w),
+                    Expanded(
+                      child: Text(
+                        'Üyelik seçenekleri yüklenemedi',
+                        style: TextStyle(
+                          fontSize: 15.sp,
+                          fontWeight: FontWeight.w800,
+                          color: Colors.black87,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                SizedBox(height: 8.h),
+                Text(
+                  state.message,
+                  style: TextStyle(
+                    fontSize: 13.sp,
+                    height: 1.35,
+                    color: Colors.grey.shade800,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                SizedBox(height: 12.h),
+                ElevatedButton(
+                  onPressed: () => context.read<LoadProductsCubit>().loadProducts(),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    padding: EdgeInsets.symmetric(vertical: 12.h),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12.r),
+                    ),
+                  ),
+                  child: Text(
+                    'Tekrar dene',
+                    style: TextStyle(
+                      fontSize: 15.sp,
+                      fontWeight: FontWeight.w800,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          );
         }
         if (state is LoadProductsSuccess) {
           final products = state.products;
@@ -392,6 +521,15 @@ class _PlansSection extends StatelessWidget {
           final weekly = _findProduct(products, 'weekly_premium');
           final monthly = _findProduct(products, 'monthly_premium');
           final yearly = _findProduct(products, 'yearly_premium');
+
+          // İlk kez açılışta seçili plan yoksa, mağazadan gelen gerçek ID ile seç.
+          if (selectedProductId == null) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (context.read<SelectedPlanCubit>().state == null) {
+                context.read<SelectedPlanCubit>().selectPlan(weekly.productId);
+              }
+            });
+          }
 
           final weeklyPriceText = weekly.price;
           final monthlyPriceText = monthly.price;
@@ -838,55 +976,75 @@ class _StartButtonState extends State<_StartButton>
 
   @override
   Widget build(BuildContext context) {
-    return BlocBuilder<PurchaseCubit, PurchaseState>(
-      builder: (context, state) {
-        final isLoading = state is PurchaseInProgress;
+    return BlocBuilder<LoadProductsCubit, LoadProductsState>(
+      builder: (context, productsState) {
+        final productsReady = productsState is LoadProductsSuccess &&
+            productsState.products.isNotEmpty;
 
-        return AnimatedBuilder(
-          animation: _pulse,
-          builder: (context, child) {
-            return Transform.scale(
-              scale: isLoading ? 1 : _pulse.value,
-              child: SizedBox(
-                width: MediaQuery.of(context).size.width * 0.60,
-                child: ElevatedButton(
-                  onPressed: isLoading
-                      ? null
-                      : () {
-                          final selectedProductId =
-                              context.read<SelectedPlanCubit>().state;
-                          if (selectedProductId != null) {
-                            context
-                                .read<PurchaseCubit>()
-                                .purchaseProduct(selectedProductId);
-                          }
-                        },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.secondary,
-                    padding: EdgeInsets.symmetric(vertical: 16.h),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12.r),
+        return BlocBuilder<PurchaseCubit, PurchaseState>(
+          builder: (context, purchaseState) {
+            final isLoading = purchaseState is PurchaseInProgress;
+            final selectedProductId = context.watch<SelectedPlanCubit>().state;
+            final canStart = productsReady && selectedProductId != null && !isLoading;
+
+            return AnimatedBuilder(
+              animation: _pulse,
+              builder: (context, child) {
+                return Transform.scale(
+                  scale: isLoading ? 1 : _pulse.value,
+                  child: SizedBox(
+                    width: MediaQuery.of(context).size.width * 0.60,
+                    child: ElevatedButton(
+                      onPressed: canStart
+                          ? () {
+                              context
+                                  .read<PurchaseCubit>()
+                                  .purchaseProduct(selectedProductId);
+                            }
+                          : () {
+                              if (isLoading) return;
+                              final msg = productsState is LoadProductsFailure
+                                  ? productsState.message
+                                  : 'Üyelik seçenekleri yükleniyor. Lütfen biraz bekleyin.';
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(
+                                    msg,
+                                    style: TextStyle(fontSize: 14.sp),
+                                  ),
+                                ),
+                              );
+                            },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: canStart
+                            ? AppColors.secondary
+                            : AppColors.secondary.withValues(alpha: 0.55),
+                        padding: EdgeInsets.symmetric(vertical: 16.h),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12.r),
+                        ),
+                      ),
+                      child: isLoading
+                          ? SizedBox(
+                              height: 24.sp,
+                              width: 24.sp,
+                              child: const CircularProgressIndicator(
+                                color: Colors.white,
+                                strokeWidth: 3,
+                              ),
+                            )
+                          : Text(
+                              "Şimdi Başla",
+                              style: TextStyle(
+                                fontSize: 20.sp,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
+                              ),
+                            ),
                     ),
                   ),
-                  child: isLoading
-                      ? SizedBox(
-                          height: 24.sp,
-                          width: 24.sp,
-                          child: const CircularProgressIndicator(
-                            color: Colors.white,
-                            strokeWidth: 3,
-                          ),
-                        )
-                      : Text(
-                          "Şimdi Başla",
-                          style: TextStyle(
-                            fontSize: 20.sp,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white,
-                          ),
-                        ),
-                ),
-              ),
+                );
+              },
             );
           },
         );

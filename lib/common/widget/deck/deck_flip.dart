@@ -6,7 +6,6 @@ import 'package:ben_kimim/core/configs/ads/admob_ids.dart';
 import 'package:ben_kimim/core/configs/theme/app_color.dart';
 import 'package:ben_kimim/presentation/bottom_nav/bloc/bottom_nav_cubit.dart';
 import 'package:ben_kimim/presentation/game/bloc/display_current_card_list_cubit.dart';
-import 'package:ben_kimim/presentation/game/bloc/game_interstitial_counter_cubit.dart';
 import 'package:ben_kimim/presentation/game/bloc/timer_cubit.dart';
 import 'package:ben_kimim/presentation/phone_to_forhead/page/phone_to_forhead.dart';
 import 'package:ben_kimim/presentation/premium/bloc/is_user_premium_cubit.dart';
@@ -43,29 +42,14 @@ class _DeckFlipState extends State<DeckFlip>
   }
 
   Future<void> _startGameWithInterstitialPolicy() async {
-    final showAd = context
-        .read<GameInterstitialCounterCubit>()
-        .consumeGameStartAndShouldShowInterstitial();
-
     if (context.read<IsUserPremiumCubit>().state) {
       _navigateToGamePage();
       return;
     }
-    if (!showAd) {
-      _navigateToGamePage();
-      return;
-    }
 
-    // Hazırsa göster; değilse bekleme, direkt oyuna geç ve bir sonraki için preload et.
-    final shown = AppInterstitials.gameStart.showIfReady(onDone: () {
-      if (mounted) _navigateToGamePage();
-      // bir sonraki tur için tekrar hazırla
-      AppInterstitials.gameStart.preload(AdMobIds.gameStartInterstitial);
-    });
-    if (!shown) {
-      AppInterstitials.gameStart.preload(AdMobIds.gameStartInterstitial);
-      _navigateToGamePage();
-    }
+    // Interstitial artık oyun başlangıcında gösterilmiyor.
+    // Oyun bittikten sonra Result sayfasında değerlendirilecek.
+    _navigateToGamePage();
   }
 
   void _navigateToGamePage() {

@@ -2,13 +2,20 @@ import 'dart:async';
 
 import 'package:ben_kimim/data/app_purchase/model/purchase_model.dart';
 import 'package:ben_kimim/presentation/premium/bloc/purchase_state.dart';
+import 'package:ben_kimim/presentation/premium/helper/friendly_purchase_errors.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:purchases_flutter/purchases_flutter.dart';
 
 class PurchaseCubit extends Cubit<PurchaseState> {
   PurchaseCubit() : super(PurchaseInitial());
 
-  String _baseId(String productId) => productId.split(':').first;
+  /// iOS: `com.company.app.weekly_premium` → `weekly_premium`
+  /// Android: `weekly_premium:weekly-plan` → `weekly_premium`
+  String _baseId(String productId) {
+    final beforeColon = productId.split(':').first;
+    final dotParts = beforeColon.split('.');
+    return dotParts.isNotEmpty ? dotParts.last : beforeColon;
+  }
 
   /// RevenueCat ile satın alma.
   Future<void> purchaseProduct(String productId) async {
@@ -18,7 +25,12 @@ class PurchaseCubit extends Cubit<PurchaseState> {
       final offerings = await Purchases.getOfferings();
       final offering = offerings.current;
       if (offering == null) {
-        emit(PurchaseFailure(message: 'RevenueCat offering bulunamadı.'));
+        emit(
+          PurchaseFailure(
+            message:
+                'Üyelik seçenekleri şu an kullanılamıyor. Lütfen daha sonra tekrar deneyin.',
+          ),
+        );
         return;
       }
 
@@ -36,11 +48,14 @@ class PurchaseCubit extends Cubit<PurchaseState> {
         customerInfo = await Purchases.purchasePackage(package);
       } else {
         // Offering'de paket yoksa (ör. Weekly eksik) doğrudan Store ürününden satın al.
-        final products = await Purchases.getProducts([base]);
+        final storeId = productId.split(':').first;
+        final products = await Purchases.getProducts([storeId]);
         if (products.isEmpty) {
           emit(
             PurchaseFailure(
-              message: 'Ürün bulunamadı: $base (mağaza ürün listesi boş).',
+              message: FriendlyPurchaseErrors.forPurchase(
+                'product not found: $storeId',
+              ),
             ),
           );
           return;
@@ -66,10 +81,16 @@ class PurchaseCubit extends Cubit<PurchaseState> {
       if (model.isActive) {
         emit(PurchaseSuccess(purchase: model));
       } else {
-        emit(PurchaseFailure(message: 'Purchase completed but not active.'));
+        emit(
+          PurchaseFailure(
+            message: FriendlyPurchaseErrors.forPurchase(
+              'purchase completed but not active',
+            ),
+          ),
+        );
       }
     } catch (e) {
-      emit(PurchaseFailure(message: 'Error purchasing product: $e'));
+      emit(PurchaseFailure(message: FriendlyPurchaseErrors.forPurchase(e)));
     }
   }
 
@@ -81,10 +102,16 @@ class PurchaseCubit extends Cubit<PurchaseState> {
       if (model.isActive) {
         emit(PurchaseSuccess(purchase: model));
       } else {
-        emit(PurchaseFailure(message: 'Restore completed but no active plan.'));
+        emit(
+          PurchaseFailure(
+            message: FriendlyPurchaseErrors.forPurchase(
+              'no active plan',
+            ),
+          ),
+        );
       }
     } catch (e) {
-      emit(PurchaseFailure(message: 'Error restoring purchases: $e'));
+      emit(PurchaseFailure(message: FriendlyPurchaseErrors.forPurchase(e)));
     }
   }
 }

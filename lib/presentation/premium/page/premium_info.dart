@@ -50,7 +50,11 @@ class PremiumInfoPage extends StatelessWidget {
     );
   }
 
-  String _normalizeId(String productId) => productId.split(':').first;
+  String _normalizeId(String productId) {
+    final beforeColon = productId.split(':').first;
+    final dotParts = beforeColon.split('.');
+    return dotParts.isNotEmpty ? dotParts.last : beforeColon;
+  }
 
   // -----------------------------------------------------------
   // BACKGROUND GRADIENT
@@ -163,7 +167,6 @@ class PremiumInfoPage extends StatelessWidget {
               );
       return match.priceString;
     } catch (_) {
-      if (_normalizeId(productId) == 'test_premium') return '₺0,00';
       return '—';
     }
   }

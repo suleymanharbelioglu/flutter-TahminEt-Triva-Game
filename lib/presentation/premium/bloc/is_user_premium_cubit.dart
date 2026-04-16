@@ -1,5 +1,6 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 
 import 'premium_status_cubit.dart';
 import 'premium_status_state.dart';
@@ -29,7 +30,7 @@ class IsUserPremiumCubit extends Cubit<bool> {
   }
 
   void _setPremiumState(PremiumStatusState premiumState, bool unlocked) {
-    if (unlocked) {
+    if (kDebugMode && unlocked) {
       emit(true);
       return;
     }

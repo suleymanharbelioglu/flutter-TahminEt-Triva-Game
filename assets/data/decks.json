@@ -21,7 +21,7 @@
     "namesFilePath": "assets/data/names/meyveler_ve_sebzeler_nameList.json",
     "deckTextColor": "0xFF344F2B",
     "deckDescription": "Tatlı mı? Ekşi mi? Ağaçta mı yetişir?...\n\nBu deste, sıkça tüketilen meyve ve sebzeleri içeriyor.\n\nArkadaşlarına sorular sor ve ipuçlarından yola çıkarak tahmin et!",
-    "isPremium": true
+    "isPremium": false
   },
   {
     "deckName": "Markalar",
@@ -45,7 +45,7 @@
     "namesFilePath": "assets/data/names/ciz_nameList.json",
     "deckTextColor": "0xFF344F2B",
     "deckDescription": "Emzik mi? Muz mu? Kedi mi?...\n\nKalem ve kağıdını hazırla! Bu deste, nesneler ve canlıları içeriyor.\n\nArkadaşların hiç konuşmadan ve ses çıkarmadan çizsinler, sen de tahmin et!",
-    "isPremium": true
+    "isPremium": false
   },
   {
     "deckName": "Çiz 2",
@@ -57,18 +57,6 @@
     "namesFilePath": "assets/data/names/ciz_2_nameList.json",
     "deckTextColor": "0xFF344F2B",
     "deckDescription": "Makas mı? Köpek mi? Çorap mı?...\n\nKalem ve kağıdını hazırla! Bu deste, nesneler ve canlıları içeriyor.\n\nArkadaşların hiç konuşmadan ve ses çıkarmadan çizsinler, sen de tahmin et!",
-    "isPremium": true
-  },
-  {
-    "deckName": "Animeler",
-    "categoryNameList": [
-      "CizgiFilmAnime"
-    ],
-    "onGorselAdress": "assets/images/deck_images/animeler.jpg",
-    "arkaGorselAdress": "assets/images/deck_images/animeler_arka.jpg",
-    "namesFilePath": "assets/data/names/animeler_nameList.json",
-    "deckTextColor": "0xFF344F2B",
-    "deckDescription": "Okulda mı geçiyor? Aksiyon ve savaş içeriyor mu?...\n\nBu deste, en popüler animeleri içeriyor.\n\nArkadaşlarına sorular sor ve ipuçlarından yola çıkarak tahmin et!",
     "isPremium": true
   },
   {
@@ -105,6 +93,18 @@
     "namesFilePath": "assets/data/names/cizgi_filmler_nameList.json",
     "deckTextColor": "0xFF344F2B",
     "deckDescription": "Ana karaterler hayvan  mı? Aksiyon içeriyor mu?...\n\nBu deste,Türkiye'de en sevilen çizgi filmleri içeriyor.\n\nArkadaşlarına  sorular sor ve ipuçlarından yola çıkarak tahmin et!",
+    "isPremium": false
+  },
+  {
+    "deckName": "Animeler",
+    "categoryNameList": [
+      "CizgiFilmAnime"
+    ],
+    "onGorselAdress": "assets/images/deck_images/animeler.jpg",
+    "arkaGorselAdress": "assets/images/deck_images/animeler_arka.jpg",
+    "namesFilePath": "assets/data/names/animeler_nameList.json",
+    "deckTextColor": "0xFF344F2B",
+    "deckDescription": "Okulda mı geçiyor? Aksiyon ve savaş içeriyor mu?...\n\nBu deste, en popüler animeleri içeriyor.\n\nArkadaşlarına sorular sor ve ipuçlarından yola çıkarak tahmin et!",
     "isPremium": true
   },
   {
@@ -297,7 +297,7 @@
     "namesFilePath": "assets/data/names/oyunlar_nameList.json",
     "deckTextColor": "0xFFF1BCCE",
     "deckDescription": "Mobil mi, konsol mu? PC oyunu mu?...\n\nBu deste, en popüler dijital oyunları içeriyor.\n\nArkadaşlarına sorular sor ve ipuçlarından yola çıkarak tahmin et!",
-    "isPremium": true
+    "isPremium": false
   },
   {
     "deckName": "Meslekler",
@@ -326,14 +326,14 @@
   {
     "deckName": "Başkentler",
     "categoryNameList": [
-      "Bilim & Genel Kültür"
+      "Popular"
     ],
     "onGorselAdress": "assets/images/deck_images/baskentler.jpg",
     "arkaGorselAdress": "assets/images/deck_images/baskentler_arka.jpg",
     "namesFilePath": "assets/data/names/baskentler_nameList.json",
     "deckTextColor": "0xFFA36A52",
     "deckDescription": "Ankara mı? Paris mi?...\n\n Bu deste, başkentleri içeriyor.\n\nArkadaşların ülkeyi söylesin, sen de başkentini tahmin et!",
-    "isPremium": true
+    "isPremium": false
   },
   {
     "deckName": "Mimikler",
@@ -501,7 +501,7 @@
     "namesFilePath": "assets/data/names/kv_karakterleri_nameList.json",
     "deckTextColor": "0xFF5F919C",
     "deckDescription": "Polat mı, Memati mi?...\n\nBu deste, Kurtlar Vadisi'nin efsane karakterlerini içeriyor.\n\nArkadaşların bu karakterleri  canlandırsın, sen de tahmin et!",
-    "isPremium": true
+    "isPremium": false
   },
   {
     "deckName": "Aşkı-Memnu",

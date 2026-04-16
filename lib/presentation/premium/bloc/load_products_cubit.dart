@@ -1,5 +1,7 @@
 import 'package:ben_kimim/data/app_purchase/model/product_model.dart';
 import 'package:ben_kimim/presentation/premium/bloc/load_products_state.dart';
+import 'package:ben_kimim/presentation/premium/helper/friendly_purchase_errors.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:purchases_flutter/purchases_flutter.dart';
 
@@ -11,7 +13,13 @@ class LoadProductsCubit extends Cubit<LoadProductsState> {
     'yearly_premium',
   };
 
-  String _baseId(String productId) => productId.split(':').first;
+  /// iOS: `com.company.app.weekly_premium` → `weekly_premium`
+  /// Android: `weekly_premium:weekly-plan` → `weekly_premium`
+  String _baseId(String productId) {
+    final beforeColon = productId.split(':').first;
+    final dotParts = beforeColon.split('.');
+    return dotParts.isNotEmpty ? dotParts.last : beforeColon;
+  }
 
   Future<List<ProductModel>> _loadViaProductsFallback() async {
     final storeProducts = await Purchases.getProducts(_baseProductIds.toList());
@@ -66,7 +74,14 @@ class LoadProductsCubit extends Cubit<LoadProductsState> {
 
       emit(LoadProductsSuccess(products: products));
     } catch (e) {
-      emit(LoadProductsFailure(message: 'Ürünler yüklenemedi: $e'));
+      if (kDebugMode) {
+        debugPrint('LoadProductsCubit.loadProducts failed: $e');
+      }
+      emit(
+        LoadProductsFailure(
+          message: FriendlyPurchaseErrors.forLoadProducts(e),
+        ),
+      );
     }
   }
 }
