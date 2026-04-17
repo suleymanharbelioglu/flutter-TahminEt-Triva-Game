@@ -6,7 +6,8 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 class SecretDialog {
   static Future<void> showSecretDialog(BuildContext context) async {
-    if (!kDebugMode) return;
+    // Sadece mağaza release build'inde kapalı; debug + profile'da açılır.
+    if (kReleaseMode) return;
     final controller = TextEditingController();
 
     await showDialog(

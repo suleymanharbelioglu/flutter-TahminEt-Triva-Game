@@ -30,7 +30,8 @@ class IsUserPremiumCubit extends Cubit<bool> {
   }
 
   void _setPremiumState(PremiumStatusState premiumState, bool unlocked) {
-    if (kDebugMode && unlocked) {
+    // Gizli kod ile test VIP: debug + profile; release'te asla.
+    if (!kReleaseMode && unlocked) {
       emit(true);
       return;
     }
