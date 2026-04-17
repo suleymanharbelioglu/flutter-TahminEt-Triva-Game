@@ -81,7 +81,9 @@ class _GamePageState extends State<GamePage> with TickerProviderStateMixin {
     // Android: mevcut davranış kalsın (landscapeLeft).
     // iOS: telefonun üst kısmı solda kalsın diye ters landscape kullanılır.
     SystemChrome.setPreferredOrientations([
-      Platform.isIOS ? DeviceOrientation.landscapeRight : DeviceOrientation.landscapeLeft,
+      Platform.isIOS
+          ? DeviceOrientation.landscapeRight
+          : DeviceOrientation.landscapeLeft,
     ]);
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.manual, overlays: []);
   }
@@ -163,8 +165,7 @@ class _GamePageState extends State<GamePage> with TickerProviderStateMixin {
         if (shouldShow) {
           // Hazırsa göster; değilse kısa bir süre bekle, yine olmazsa result'a geç.
           AppInterstitials.gameStart.preload(AdMobIds.gameStartInterstitial);
-          final deadline =
-              DateTime.now().add(AdMobIds.interstitialLoadTimeout);
+          final deadline = DateTime.now().add(AdMobIds.interstitialLoadTimeout);
           while (mounted && DateTime.now().isBefore(deadline)) {
             final shown = AppInterstitials.gameStart.showIfReady(onDone: () {
               if (!mounted) return;

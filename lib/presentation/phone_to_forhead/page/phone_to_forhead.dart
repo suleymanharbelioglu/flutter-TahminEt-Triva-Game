@@ -40,7 +40,9 @@ class _PhoneToForeheadPageState extends State<PhoneToForeheadPage> {
     // Android: mevcut davranış kalsın (landscapeLeft).
     // iOS: telefonun üst kısmı solda kalsın.
     SystemChrome.setPreferredOrientations([
-      Platform.isIOS ? DeviceOrientation.landscapeRight : DeviceOrientation.landscapeLeft,
+      Platform.isIOS
+          ? DeviceOrientation.landscapeRight
+          : DeviceOrientation.landscapeLeft,
     ]);
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.manual, overlays: []);
 
