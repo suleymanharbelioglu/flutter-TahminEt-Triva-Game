@@ -39,6 +39,9 @@ import 'dart:io' show Platform;
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  if (kDebugMode) {
+    debugPrint('APP START: main() reached');
+  }
 
   // RevenueCat init (API key'ler dart-define ile verilir)
   if (RevenueCatConfig.isConfigured) {
@@ -71,6 +74,8 @@ Future<void> main() async {
           testDeviceIds: [
             // iOS (logdan)
             'f227aa022f3f2850308c622f36a4782e',
+            // iOS (son logdan)
+            '9762f7d4d9f849eb9d3e5c9489e11fc9',
             // Android (eski debug id)
             'D09DE3465F0FF17A7C7AA0997E40DFCA',
           ],
@@ -78,6 +83,9 @@ Future<void> main() async {
       );
     }
     await MobileAds.instance.initialize();
+    if (kDebugMode) {
+      debugPrint('APP START: MobileAds.initialize completed');
+    }
   } catch (e, st) {
     debugPrint('MobileAds.initialize failed: $e\n$st');
   }

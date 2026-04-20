@@ -137,6 +137,7 @@ class BannerContainer extends StatefulWidget {
 class _BannerContainerState extends State<BannerContainer> {
   BannerAd? _bannerAd;
   bool _isAdLoaded = false;
+  bool _isLoading = false;
   AdSize? _adSize;
 
   @override
@@ -144,29 +145,36 @@ class _BannerContainerState extends State<BannerContainer> {
     super.initState();
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final internetState = context.read<InternetConnectionCubit>().state;
       final isPremium = context.read<IsUserPremiumCubit>().state;
 
-      if (internetState is InternetConnected && !isPremium) {
-        _loadBanner();
-      }
+      if (!isPremium) _loadBanner();
     });
   }
 
   Future<void> _loadBanner() async {
     final isPremium = context.read<IsUserPremiumCubit>().state;
     if (isPremium) return;
+    if (_isLoading) return;
+    _isLoading = true;
 
     _bannerAd?.dispose();
+    _bannerAd = null;
+    if (mounted) setState(() => _isAdLoaded = false);
 
-    final screenWidth = MediaQuery.of(context).size.width;
-    final screenHeight = MediaQuery.of(context).size.height;
-
-    final int width =
-        (screenWidth < screenHeight ? screenWidth : screenHeight).toInt();
+    if (kDebugMode) {
+      debugPrint('BannerAd(homePage) load start: adUnitId=${AdMobIds.homePageBanner}');
+    }
+    final int width = MediaQuery.of(context).size.width.toInt();
     final size = await AdSize.getCurrentOrientationAnchoredAdaptiveBannerAdSize(
-        width.toInt());
-    if (size == null || !mounted) return;
+      width,
+    );
+    if (size == null || !mounted) {
+      _isLoading = false;
+      if (kDebugMode) {
+        debugPrint('BannerAd(homePage) size is null for width=$width');
+      }
+      return;
+    }
 
     setState(() => _adSize = size);
 
@@ -176,10 +184,17 @@ class _BannerContainerState extends State<BannerContainer> {
       request: const AdRequest(),
       listener: BannerAdListener(
         onAdLoaded: (_) {
+          _isLoading = false;
           if (mounted) setState(() => _isAdLoaded = true);
+          if (kDebugMode) {
+            debugPrint(
+              'BannerAd(homePage) loaded: size=${size.width}x${size.height}',
+            );
+          }
         },
         onAdFailedToLoad: (ad, error) {
           ad.dispose();
+          _isLoading = false;
           if (mounted) setState(() => _isAdLoaded = false);
           if (kDebugMode) {
             debugPrint(
@@ -206,7 +221,8 @@ class _BannerContainerState extends State<BannerContainer> {
     return BlocListener<InternetConnectionCubit, InternetConnectionState>(
       listener: (context, state) {
         if (state is InternetConnected && !isPremium) {
-          _loadBanner();
+          // If it's not visible/loaded yet, retry when connection returns.
+          if (!_isAdLoaded) _loadBanner();
         }
       },
       child: _isAdLoaded && _bannerAd != null && _adSize != null

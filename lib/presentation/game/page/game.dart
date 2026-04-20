@@ -55,16 +55,11 @@ class _GamePageState extends State<GamePage> with TickerProviderStateMixin {
     _loadInitialNameAndStartTimer();
     _startSensorListening();
 
-    // Oyun başladığında, bu oyunun sonunda reklam çıkacaksa interstitial'ı şimdiden hazırla.
+    // Oyun başladığında, oyun sonunda gösterim için interstitial'ı şimdiden hazırla.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       if (context.read<IsUserPremiumCubit>().state) return;
-      final nextGameEndCount =
-          context.read<GameInterstitialCounterCubit>().state + 1;
-      final willShowAtEnd = nextGameEndCount.isEven; // yok → var → yok → var …
-      if (willShowAtEnd) {
-        AppInterstitials.gameStart.preload(AdMobIds.gameStartInterstitial);
-      }
+      AppInterstitials.gameStart.preload(AdMobIds.gameStartInterstitial);
     });
   }
 
@@ -158,35 +153,28 @@ class _GamePageState extends State<GamePage> with TickerProviderStateMixin {
       // Tamamlanan oyun sayısını kaydet (puanlama dialog'u için).
       await RateAppService.recordGameCompleted();
 
-      if (!context.read<IsUserPremiumCubit>().state) {
-        final shouldShow = context
-            .read<GameInterstitialCounterCubit>()
-            .consumeGameStartAndShouldShowInterstitial();
-        if (shouldShow) {
-          // Hazırsa göster; değilse kısa bir süre bekle, yine olmazsa result'a geç.
-          AppInterstitials.gameStart.preload(AdMobIds.gameStartInterstitial);
-          final deadline = DateTime.now().add(AdMobIds.interstitialLoadTimeout);
-          while (mounted && DateTime.now().isBefore(deadline)) {
-            final shown = AppInterstitials.gameStart.showIfReady(onDone: () {
-              if (!mounted) return;
-              Navigator.pushReplacement(
-                context,
-                MaterialPageRoute(builder: (_) => const GameResultPage()),
-              );
-            });
-            if (shown) return;
-            await Future<void>.delayed(const Duration(milliseconds: 250));
-          }
-        } else {
-          // Sayaç tüketildi; reklam çıkmayacak tur.
-        }
+      if (!mounted) return;
+      final isPremium = context.read<IsUserPremiumCubit>().state;
+      final shouldShowInterstitial = !isPremium &&
+          context
+              .read<GameInterstitialCounterCubit>()
+              .consumeGameStartAndShouldShowInterstitial();
+      if (shouldShowInterstitial) {
+        AppInterstitials.gameStart.preload(AdMobIds.gameStartInterstitial);
       }
 
-      if (!mounted) return;
+      // Result'a anında geç; reklam için asla bekleme.
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(builder: (_) => const GameResultPage()),
       );
+
+      // Result sayfası çizildikten sonra: hazırsa göster, değilse sessizce geç.
+      if (shouldShowInterstitial) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          AppInterstitials.gameStart.showIfReady(onDone: () {});
+        });
+      }
     });
   }
 

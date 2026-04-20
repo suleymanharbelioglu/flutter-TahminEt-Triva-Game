@@ -9,9 +9,11 @@ class AdMobIds {
   /// - `false` → hepsi **üretim** birimleri. Mağaza / iç yayın öncesi mutlaka `false`.
   static const bool useTestAdsOnAndroid = false;
 
-  /// true iken iOS'ta Google test birim ID'leri kullanılır.
-  /// Yayın / gerçek reklamlar için false (üretim birimleri).
-  static const bool _useTestAdsOnIOS = false;
+  /// iOS'ta Google test birim ID'leri kullanılsın mı?
+  ///
+  /// Not: iOS'ta reklam görünmüyorsa teşhis için bunu geçici olarak `true` yap.
+  /// Yayın / gerçek reklamlar için `false` (üretim birimleri).
+  static bool useTestAdsOnIOS = false;
 
   // Google test ad unit IDs (safe for development).
   static const String _testBanner = 'ca-app-pub-3940256099942544/2934735716';
@@ -42,7 +44,7 @@ class AdMobIds {
   static bool get _useTestIos =>
       !kIsWeb &&
       defaultTargetPlatform == TargetPlatform.iOS &&
-      _useTestAdsOnIOS;
+      useTestAdsOnIOS;
 
   static bool get _useTestAndroid =>
       !kIsWeb &&

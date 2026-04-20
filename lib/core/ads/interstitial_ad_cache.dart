@@ -25,11 +25,16 @@ class InterstitialAdCache {
           _loading = false;
           _ad = ad;
           _loadedAt = DateTime.now();
+          if (kDebugMode) {
+            debugPrint('Interstitial loaded: adUnitId=$adUnitId');
+          }
         },
         onAdFailedToLoad: (error) {
           _loading = false;
           if (kDebugMode) {
-            debugPrint('Interstitial preload failed: $error');
+            debugPrint(
+              'Interstitial preload failed: adUnitId=$adUnitId code=${error.code} domain=${error.domain} message=${error.message}',
+            );
           }
         },
       ),
@@ -50,6 +55,11 @@ class InterstitialAdCache {
         onDone();
       },
       onAdFailedToShowFullScreenContent: (a, error) {
+        if (kDebugMode) {
+          debugPrint(
+            'Interstitial failed to show: code=${error.code} domain=${error.domain} message=${error.message}',
+          );
+        }
         a.dispose();
         onDone();
       },
@@ -60,6 +70,9 @@ class InterstitialAdCache {
       try {
         ad.show();
       } catch (_) {
+        if (kDebugMode) {
+          debugPrint('Interstitial show threw exception');
+        }
         ad.dispose();
         onDone();
       }

@@ -41,15 +41,6 @@ class _GameResultPageState extends State<GameResultPage> {
 
     _scrollController.addListener(_onScroll);
 
-    if (kDebugMode) {
-      // Debug modda test cihazı
-      MobileAds.instance.updateRequestConfiguration(
-        RequestConfiguration(
-          testDeviceIds: ["D09DE3465F0FF17A7C7AA0997E40DFCA"],
-        ),
-      );
-    }
-
     // Result ekranı açılınca (uygun şartlarda) puanlama dialog'u göster.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       RateAppService.maybeShowRateSheet(context);
@@ -278,15 +269,15 @@ class BannerContainer extends StatefulWidget {
 class _BannerContainerState extends State<BannerContainer> {
   BannerAd? _bannerAd;
   bool _isAdLoaded = false;
+  bool _isLoading = false;
+  AdSize? _adSize;
 
   @override
   void initState() {
     super.initState();
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final internetState = context.read<InternetConnectionCubit>().state;
-
-      if (internetState is InternetConnected) {
+      if (!context.read<IsUserPremiumCubit>().state) {
         _loadBanner();
       }
     });
@@ -295,39 +286,49 @@ class _BannerContainerState extends State<BannerContainer> {
   Future<void> _loadBanner() async {
     if (!mounted) return;
     if (context.read<IsUserPremiumCubit>().state) return;
+    if (_isLoading) return;
+    _isLoading = true;
 
     _bannerAd?.dispose();
+    _bannerAd = null;
+    if (mounted) setState(() => _isAdLoaded = false);
 
-    final screenWidth = MediaQuery.of(context).size.width;
-    final screenHeight = MediaQuery.of(context).size.height;
-
-// Küçük olanı al
-    final int width =
-        (screenWidth < screenHeight ? screenWidth : screenHeight).toInt();
-    // 🔥 getAnchoredAdaptiveBannerAdSize entegrasyonu
-    AdSize? size = await AdSize.getAnchoredAdaptiveBannerAdSize(
-      Orientation.portrait, // Çünkü uygulaman portrait locked
-      width,
-    );
-
-    if (size == null) {
+    if (kDebugMode) {
+      debugPrint(
+        'BannerAd(gameResult) load start: adUnitId=${AdMobIds.gameResultBanner}',
+      );
+    }
+    final int width = MediaQuery.of(context).size.width.toInt();
+    final size =
+        await AdSize.getCurrentOrientationAnchoredAdaptiveBannerAdSize(width);
+    if (size == null || !mounted) {
+      _isLoading = false;
+      if (kDebugMode) {
+        debugPrint('BannerAd(gameResult) size is null for width=$width');
+      }
       return;
     }
 
-    final BannerAd banner = BannerAd(
+    setState(() => _adSize = size);
+
+    _bannerAd = BannerAd(
       adUnitId: AdMobIds.gameResultBanner,
       size: size,
       request: const AdRequest(),
       listener: BannerAdListener(
-        onAdLoaded: (ad) {
-          if (!mounted) return;
-          setState(() {
-            _bannerAd = ad as BannerAd;
-            _isAdLoaded = true;
-          });
+        onAdLoaded: (_) {
+          _isLoading = false;
+          if (mounted) setState(() => _isAdLoaded = true);
+          if (kDebugMode) {
+            debugPrint(
+              'BannerAd(gameResult) loaded: size=${size.width}x${size.height}',
+            );
+          }
         },
         onAdFailedToLoad: (ad, error) {
           ad.dispose();
+          _isLoading = false;
+          if (mounted) setState(() => _isAdLoaded = false);
           if (kDebugMode) {
             debugPrint(
               'BannerAd(gameResult) failed: code=${error.code} domain=${error.domain} message=${error.message}',
@@ -335,9 +336,7 @@ class _BannerContainerState extends State<BannerContainer> {
           }
         },
       ),
-    );
-
-    await banner.load();
+    )..load();
   }
 
   @override
@@ -348,22 +347,20 @@ class _BannerContainerState extends State<BannerContainer> {
 
   @override
   Widget build(BuildContext context) {
+    final isPremium = context.watch<IsUserPremiumCubit>().state;
+    if (isPremium) return const SizedBox.shrink();
+
     return BlocListener<InternetConnectionCubit, InternetConnectionState>(
       listener: (context, state) {
-        if (state is InternetConnected) {
-          _loadBanner();
+        if (state is InternetConnected && !isPremium) {
+          if (!_isAdLoaded) _loadBanner();
         }
       },
-      child: _isAdLoaded && _bannerAd != null
-          ? Align(
-              alignment: Alignment.bottomCenter,
-              child: SafeArea(
-                child: SizedBox(
-                  width: _bannerAd!.size.width.toDouble(),
-                  height: _bannerAd!.size.height.toDouble(),
-                  child: AdWidget(ad: _bannerAd!),
-                ),
-              ),
+      child: _isAdLoaded && _bannerAd != null && _adSize != null
+          ? SizedBox(
+              width: MediaQuery.of(context).size.width,
+              height: _adSize!.height.toDouble(),
+              child: AdWidget(ad: _bannerAd!),
             )
           : const SizedBox.shrink(),
     );
