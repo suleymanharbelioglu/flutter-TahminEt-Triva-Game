@@ -33,7 +33,7 @@
     "namesFilePath": "assets/data/names/markalar_nameList.json",
     "deckTextColor": "0xFF344F2B",
     "deckDescription": "Araba üretiyor mu? Yerli mı? Pahalı mı?...\n\nBu deste, popüler markaları içeriyor.\n\nArkadaşlarına sorular sor ve ipuçlarından yola çıkarak tahmin et!",
-    "isPremium": false
+    "isPremium": true
   },
   {
     "deckName": "Çiz",
@@ -45,7 +45,7 @@
     "namesFilePath": "assets/data/names/ciz_nameList.json",
     "deckTextColor": "0xFF344F2B",
     "deckDescription": "Emzik mi? Muz mu? Kedi mi?...\n\nKalem ve kağıdını hazırla! Bu deste, nesneler ve canlıları içeriyor.\n\nArkadaşların hiç konuşmadan ve ses çıkarmadan çizsinler, sen de tahmin et!",
-    "isPremium": false
+    "isPremium": true
   },
   {
     "deckName": "Çiz 2",
@@ -93,7 +93,7 @@
     "namesFilePath": "assets/data/names/cizgi_filmler_nameList.json",
     "deckTextColor": "0xFF344F2B",
     "deckDescription": "Ana karaterler hayvan  mı? Aksiyon içeriyor mu?...\n\nBu deste,Türkiye'de en sevilen çizgi filmleri içeriyor.\n\nArkadaşlarına  sorular sor ve ipuçlarından yola çıkarak tahmin et!",
-    "isPremium": false
+    "isPremium": true
   },
   {
     "deckName": "Animeler",
@@ -297,7 +297,7 @@
     "namesFilePath": "assets/data/names/oyunlar_nameList.json",
     "deckTextColor": "0xFFF1BCCE",
     "deckDescription": "Mobil mi, konsol mu? PC oyunu mu?...\n\nBu deste, en popüler dijital oyunları içeriyor.\n\nArkadaşlarına sorular sor ve ipuçlarından yola çıkarak tahmin et!",
-    "isPremium": false
+    "isPremium": true
   },
   {
     "deckName": "Meslekler",
@@ -333,7 +333,7 @@
     "namesFilePath": "assets/data/names/baskentler_nameList.json",
     "deckTextColor": "0xFFA36A52",
     "deckDescription": "Ankara mı? Paris mi?...\n\n Bu deste, başkentleri içeriyor.\n\nArkadaşların ülkeyi söylesin, sen de başkentini tahmin et!",
-    "isPremium": false
+    "isPremium": true
   },
   {
     "deckName": "Mimikler",

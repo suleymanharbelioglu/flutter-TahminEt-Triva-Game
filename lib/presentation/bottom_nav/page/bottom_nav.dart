@@ -1,6 +1,7 @@
 import 'package:ben_kimim/presentation/all_decks/pages/all_decks.dart';
 import 'package:ben_kimim/presentation/bottom_nav/bloc/bottom_nav_cubit.dart';
 import 'package:ben_kimim/core/configs/ads/admob_ids.dart';
+import 'package:ben_kimim/core/rate_app/rate_app_service.dart';
 import 'package:ben_kimim/presentation/how_to_play/page/how_to_play.dart';
 import 'package:ben_kimim/presentation/no_internet/bloc/internet_connection_state.dart';
 import 'package:ben_kimim/presentation/no_internet/page/no_internet.dart';
@@ -16,7 +17,8 @@ import 'package:ben_kimim/presentation/no_internet/bloc/internet_connection_cubi
 import 'package:flutter_screenutil/flutter_screenutil.dart'; // ScreenUtil eklendi
 
 class BottomNavPage extends StatefulWidget {
-  const BottomNavPage({super.key});
+  final bool showRatePrompt;
+  const BottomNavPage({super.key, this.showRatePrompt = false});
 
   @override
   State<BottomNavPage> createState() => _BottomNavPageState();
@@ -34,6 +36,10 @@ class _BottomNavPageState extends State<BottomNavPage> {
       SystemChrome.setPreferredOrientations([
         DeviceOrientation.portraitUp,
       ]);
+
+      if (widget.showRatePrompt) {
+        RateAppService.maybeShowRateSheet(context);
+      }
     });
   }
 

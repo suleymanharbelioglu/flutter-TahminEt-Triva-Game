@@ -10,11 +10,11 @@ class GameInterstitialCounterCubit extends Cubit<int> {
   bool consumeGameStartAndShouldShowInterstitial() {
     final next = state + 1;
     emit(next);
-    // Her 2 oyunda 1 interstitial.
-    final show = next % 2 == 0;
+    // Her oyunda interstitial.
+    final show = true;
     if (kDebugMode) {
       debugPrint(
-        'GameInterstitialCounter: giriş #$next → interstitial ${show ? "EVET" : "HAYIR"}',
+        'GameInterstitialCounter: giriş #$next → interstitial EVET',
       );
     }
     return show;

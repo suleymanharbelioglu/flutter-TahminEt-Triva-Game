@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:ben_kimim/common/navigator/app_navigator.dart';
 import 'package:ben_kimim/core/configs/ads/admob_ids.dart';
 import 'package:ben_kimim/core/configs/theme/app_color.dart';
-import 'package:ben_kimim/core/rate_app/rate_app_service.dart';
 import 'package:ben_kimim/data/card/model/card_result.dart';
 import 'package:ben_kimim/presentation/bottom_nav/page/bottom_nav.dart';
 import 'package:ben_kimim/presentation/game/bloc/current_name_cubit.dart';
@@ -40,11 +39,6 @@ class _GameResultPageState extends State<GameResultPage> {
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
 
     _scrollController.addListener(_onScroll);
-
-    // Result ekranı açılınca (uygun şartlarda) puanlama dialog'u göster.
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      RateAppService.maybeShowRateSheet(context);
-    });
   }
 
   Widget _withInternetListener(Widget child) {
@@ -73,7 +67,10 @@ class _GameResultPageState extends State<GameResultPage> {
   void _navigateToHome(BuildContext context) {
     _resetCubits(context);
     Navigator.pushReplacement(
-        context, MaterialPageRoute(builder: (_) => const BottomNavPage()));
+        context,
+        MaterialPageRoute(
+          builder: (_) => const BottomNavPage(showRatePrompt: true),
+        ));
   }
 
   void _resetCubits(BuildContext context) {
