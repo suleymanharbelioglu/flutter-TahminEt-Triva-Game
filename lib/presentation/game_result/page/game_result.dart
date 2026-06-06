@@ -1,11 +1,13 @@
-import 'dart:async';
-
+import 'package:ben_kimim/common/widget/ads/ad_watch_icon.dart';
 import 'package:ben_kimim/common/navigator/app_navigator.dart';
 import 'package:ben_kimim/core/configs/ads/admob_ids.dart';
 import 'package:ben_kimim/core/configs/theme/app_color.dart';
+import 'package:ben_kimim/core/ads/deck_rewarded_ad_helper.dart';
 import 'package:ben_kimim/data/card/model/card_result.dart';
 import 'package:ben_kimim/presentation/bottom_nav/page/bottom_nav.dart';
+import 'package:ben_kimim/presentation/game/bloc/current_deck_cubit.dart';
 import 'package:ben_kimim/presentation/game/bloc/current_name_cubit.dart';
+import 'package:ben_kimim/presentation/game/bloc/deck_play_credits_cubit.dart';
 import 'package:ben_kimim/presentation/game/bloc/score_cubit.dart';
 import 'package:ben_kimim/presentation/game_result/bloc/result_cubit.dart';
 import 'package:ben_kimim/presentation/no_internet/page/no_internet.dart';
@@ -31,6 +33,7 @@ class _GameResultPageState extends State<GameResultPage> {
   final ScrollController _scrollController = ScrollController();
   double _scrollPosition = 0.0;
   double _scrollMax = 1.0;
+  bool _isShowingRewarded = false;
 
   @override
   void initState() {
@@ -79,14 +82,32 @@ class _GameResultPageState extends State<GameResultPage> {
     context.read<ResultCubit>().reset();
   }
 
+  bool _needsRewardedToPlayAgain(BuildContext context) {
+    if (context.read<IsUserPremiumCubit>().state) return false;
+    final deck = context.read<CurrentDeckCubit>().state;
+    if (deck == null || !deck.isAdDeck) return false;
+    return !context.read<DeckPlayCreditsCubit>().hasCredits(deck.deckName);
+  }
+
   Future<void> _onPlayAgainPressed(BuildContext context) async {
-    if (context.read<IsUserPremiumCubit>().state) {
-      _navigateToGamePage();
-      if (mounted) _resetCubits(context);
-      return;
+    if (_isShowingRewarded) return;
+
+    if (_needsRewardedToPlayAgain(context)) {
+      setState(() => _isShowingRewarded = true);
+
+      final deck = context.read<CurrentDeckCubit>().state!;
+      final creditsCubit = context.read<DeckPlayCreditsCubit>();
+      final rewarded = await DeckRewardedAdHelper.watchForDeckUnlock(
+        context: context,
+        onReward: () => creditsCubit.grantCredits(deck.deckName),
+      );
+
+      if (!mounted) return;
+      setState(() => _isShowingRewarded = false);
+
+      if (!rewarded) return;
     }
 
-    // Interstitial artık Result sayfasında değil, oyun bittikten sonra Result'a geçmeden önce gösteriliyor.
     _navigateToGamePage();
     if (!context.mounted) return;
     _resetCubits(context);
@@ -130,7 +151,6 @@ class _GameResultPageState extends State<GameResultPage> {
                     SizedBox(height: 8.h),
                     Expanded(child: _buildScrollableResultList(resultList)),
                     _buildPlayAgainButton(context),
-                    // BURAYA BANNER EKLENDİ
                     const BannerContainer(),
                   ],
                 );
@@ -208,27 +228,45 @@ class _GameResultPageState extends State<GameResultPage> {
   }
 
   Widget _buildPlayAgainButton(BuildContext context) {
-    return Padding(
-      padding: EdgeInsets.all(16.r),
-      child: SizedBox(
-        height: 56.h,
-        width: double.infinity,
-        child: ElevatedButton(
-          onPressed: () => _onPlayAgainPressed(context),
+    return BlocBuilder<DeckPlayCreditsCubit, Map<String, int>>(
+      builder: (context, _) {
+        final needsRewarded = _needsRewardedToPlayAgain(context);
+        final label = needsRewarded ? 'Reklam İzle Oyna' : 'Tekrar Oyna';
+
+        return Padding(
+          padding: EdgeInsets.all(16.r),
+          child: SizedBox(
+            height: 56.h,
+            width: double.infinity,
+            child: ElevatedButton(
+          onPressed: _isShowingRewarded
+              ? null
+              : () => _onPlayAgainPressed(context),
           style: ElevatedButton.styleFrom(
             backgroundColor: AppColors.secondary,
             shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12.r)),
           ),
-          child: Text(
-            "Tekrar Oyna",
-            style: TextStyle(
-                color: Colors.white,
-                fontSize: 20.sp,
-                fontWeight: FontWeight.bold),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              if (needsRewarded) ...[
+                AdWatchIconButton(size: 24.sp),
+                SizedBox(width: 8.w),
+              ],
+              Text(
+                label,
+                style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 20.sp,
+                    fontWeight: FontWeight.bold),
+              ),
+            ],
           ),
-        ),
-      ),
+            ),
+          ),
+        );
+      },
     );
   }
 }

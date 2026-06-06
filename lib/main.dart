@@ -1,3 +1,6 @@
+import 'package:ben_kimim/core/ads/interstitial_ad_cache.dart';
+import 'package:ben_kimim/core/ads/rewarded_ad_cache.dart';
+import 'package:ben_kimim/core/configs/ads/admob_ids.dart';
 import 'package:ben_kimim/core/configs/theme/app_theme.dart';
 import 'package:ben_kimim/core/configs/revenuecat/revenuecat_config.dart';
 import 'package:ben_kimim/presentation/all_decks/bloc/bilim_ve_genelk_decks_cubit.dart';
@@ -14,7 +17,9 @@ import 'package:ben_kimim/presentation/all_decks/bloc/yemeker_decks_cubit.dart';
 import 'package:ben_kimim/presentation/bottom_nav/bloc/bottom_nav_cubit.dart';
 import 'package:ben_kimim/presentation/game/bloc/current_name_cubit.dart';
 import 'package:ben_kimim/presentation/game/bloc/display_current_card_list_cubit.dart';
-import 'package:ben_kimim/presentation/game/bloc/game_interstitial_counter_cubit.dart';
+import 'package:ben_kimim/presentation/game/bloc/current_deck_cubit.dart';
+import 'package:ben_kimim/presentation/game/bloc/deck_play_credits_cubit.dart';
+import 'package:ben_kimim/presentation/game/bloc/interstitial_scheduler_cubit.dart';
 import 'package:ben_kimim/presentation/game/bloc/score_cubit.dart';
 import 'package:ben_kimim/presentation/game/bloc/timer_cubit.dart';
 import 'package:ben_kimim/presentation/game_result/bloc/result_cubit.dart';
@@ -34,8 +39,6 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:purchases_flutter/purchases_flutter.dart';
 import 'package:flutter/foundation.dart';
-import 'package:app_tracking_transparency/app_tracking_transparency.dart';
-import 'dart:io' show Platform;
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -86,27 +89,13 @@ Future<void> main() async {
     if (kDebugMode) {
       debugPrint('APP START: MobileAds.initialize completed');
     }
+    AppInterstitials.preloadAll();
+    AppRewardedAds.deckUnlock.preload(AdMobIds.deckRewarded);
   } catch (e, st) {
     debugPrint('MobileAds.initialize failed: $e\n$st');
   }
 
   runApp(const MyApp());
-
-  // iOS ATT (Tracking izni): ilk açılışta bir kez sorulur.
-  // Not: İzin verilmezse reklamlar yine gösterilebilir, sadece kişiselleştirme etkilenir.
-  _requestATTIfNeeded();
-}
-
-Future<void> _requestATTIfNeeded() async {
-  if (kIsWeb || !Platform.isIOS) return;
-  try {
-    final status = await AppTrackingTransparency.trackingAuthorizationStatus;
-    if (status == TrackingStatus.notDetermined) {
-      await AppTrackingTransparency.requestTrackingAuthorization();
-    }
-  } catch (_) {
-    // iOS 14 altı / beklenmeyen durumlarda sessizce geç.
-  }
 }
 
 /// Telefon için dar tasarım; tablet/iPad için [designSize] küçüldükçe
@@ -169,16 +158,52 @@ class MyApp extends StatelessWidget {
             BlocProvider(create: (context) => InternetConnectionCubit()),
             BlocProvider(create: (context) => PurchaseCubit()),
             BlocProvider(create: (context) => AdsCounterCubit()),
-            BlocProvider(create: (context) => GameInterstitialCounterCubit()),
+            BlocProvider(create: (context) => InterstitialSchedulerCubit()),
+            BlocProvider(create: (context) => CurrentDeckCubit()),
+            BlocProvider(create: (context) => DeckPlayCreditsCubit()),
           ],
-          child: MaterialApp(
-            debugShowCheckedModeBanner: false,
-            theme: AppTheme.appTheme,
-            title: 'Tahmin Et',
-            home: SplashPage(),
+          child: _InterstitialBootstrap(
+            child: MaterialApp(
+              debugShowCheckedModeBanner: false,
+              theme: AppTheme.appTheme,
+              title: 'Tahmin Et',
+              home: SplashPage(),
+            ),
           ),
         );
       },
+    );
+  }
+}
+
+class _InterstitialBootstrap extends StatefulWidget {
+  final Widget child;
+  const _InterstitialBootstrap({required this.child});
+
+  @override
+  State<_InterstitialBootstrap> createState() => _InterstitialBootstrapState();
+}
+
+class _InterstitialBootstrapState extends State<_InterstitialBootstrap> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _syncScheduler());
+  }
+
+  void _syncScheduler() {
+    if (!mounted) return;
+    final isPremium = context.read<IsUserPremiumCubit>().state;
+    context.read<InterstitialSchedulerCubit>().setEnabled(!isPremium);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return BlocListener<IsUserPremiumCubit, bool>(
+      listener: (_, isPremium) {
+        context.read<InterstitialSchedulerCubit>().setEnabled(!isPremium);
+      },
+      child: widget.child,
     );
   }
 }

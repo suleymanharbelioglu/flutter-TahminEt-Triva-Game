@@ -8,7 +8,8 @@ class DeckEntity {
   final String namesFilePath; // JSON dosya yolu (zorunlu)
   final String deckDescription; // Yeni alan
   final Color deckTextColor; // Yeni alan
-  final bool isPremium; // ✅ premium alanı eklendi
+  final bool isPremium;
+  final bool isAdDeck;
 
   DeckEntity({
     required this.deckName,
@@ -18,11 +19,12 @@ class DeckEntity {
     required this.namesFilePath,
     required this.deckDescription,
     required this.deckTextColor,
-    this.isPremium = false, // default ücretsiz
+    this.isPremium = false,
+    this.isAdDeck = false,
   });
 
   @override
   String toString() {
-    return "categoryNameList: ${categoryNameList.join(', ')}, isPremium: $isPremium";
+    return "categoryNameList: ${categoryNameList.join(', ')}, isPremium: $isPremium, isAdDeck: $isAdDeck";
   }
 }

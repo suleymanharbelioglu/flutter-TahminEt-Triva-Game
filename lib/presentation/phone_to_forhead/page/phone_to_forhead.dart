@@ -2,6 +2,7 @@
 import 'dart:async';
 import 'dart:io' show Platform;
 import 'package:ben_kimim/common/helper/sound/sound.dart';
+import 'package:ben_kimim/common/widget/ads/blocked_screen_scope.dart';
 import 'package:ben_kimim/core/configs/theme/app_color.dart';
 import 'package:ben_kimim/presentation/game/page/game.dart';
 import 'package:flutter/material.dart';
@@ -75,33 +76,32 @@ class _PhoneToForeheadPageState extends State<PhoneToForeheadPage> {
 
   @override
   Widget build(BuildContext context) {
-    return PopScope(
-      canPop: false, // 🔒 Tüm "pop" işlemlerini (geri çıkma) engeller
-      onPopInvoked: (didPop) {
-        // Buraya hiçbir şey yazma veya log bile atma
-        // Fiziksel geri tuşu dahil hiçbir şey sayfayı kapatamayacak
-      },
-      child: Scaffold(
-        backgroundColor: AppColors.primary,
-        body: Center(
-          child: countdownStarted
-              ? Text(
-                  '$countdown',
-                  style: TextStyle(
-                    fontSize: 40.sp,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
+    return BlockedScreenScope(
+      child: PopScope(
+        canPop: false,
+        onPopInvoked: (didPop) {},
+        child: Scaffold(
+          backgroundColor: AppColors.primary,
+          body: Center(
+            child: countdownStarted
+                ? Text(
+                    '$countdown',
+                    style: TextStyle(
+                      fontSize: 40.sp,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
+                  )
+                : Text(
+                    'TELEFONU ALNINIZA YERLEŞTİRİN',
+                    style: TextStyle(
+                      fontSize: 18.sp,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
+                    textAlign: TextAlign.center,
                   ),
-                )
-              : Text(
-                  'TELEFONU ALNINIZA YERLEŞTİRİN',
-                  style: TextStyle(
-                    fontSize: 18.sp,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
+          ),
         ),
       ),
     );

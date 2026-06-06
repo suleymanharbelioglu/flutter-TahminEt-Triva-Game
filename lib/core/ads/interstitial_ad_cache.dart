@@ -94,18 +94,15 @@ class InterstitialAdCache {
   }
 }
 
-/// Uygulama genelinde iki ayrı interstitial cache.
+/// Uygulama genelinde interstitial cache.
 class AppInterstitials {
   AppInterstitials._();
 
   static final gameStart = InterstitialAdCache();
-  static final playAgain = InterstitialAdCache();
 
   static void preloadAll() {
     gameStart.dropIfStale();
-    playAgain.dropIfStale();
     gameStart.preload(AdMobIds.gameStartInterstitial);
-    playAgain.preload(AdMobIds.playAgainInterstitial);
   }
 }
 

@@ -1,10 +1,14 @@
 import 'dart:async';
 import 'dart:math';
+import 'package:ben_kimim/common/widget/ads/ad_watch_icon.dart';
 import 'package:ben_kimim/common/navigator/app_navigator.dart';
-import 'package:ben_kimim/core/ads/interstitial_ad_cache.dart';
+import 'package:ben_kimim/core/ads/deck_rewarded_ad_helper.dart';
+import 'package:ben_kimim/core/ads/rewarded_ad_cache.dart';
 import 'package:ben_kimim/core/configs/ads/admob_ids.dart';
 import 'package:ben_kimim/core/configs/theme/app_color.dart';
 import 'package:ben_kimim/presentation/bottom_nav/bloc/bottom_nav_cubit.dart';
+import 'package:ben_kimim/presentation/game/bloc/current_deck_cubit.dart';
+import 'package:ben_kimim/presentation/game/bloc/deck_play_credits_cubit.dart';
 import 'package:ben_kimim/presentation/game/bloc/display_current_card_list_cubit.dart';
 import 'package:ben_kimim/presentation/game/bloc/timer_cubit.dart';
 import 'package:ben_kimim/presentation/phone_to_forhead/page/phone_to_forhead.dart';
@@ -26,10 +30,15 @@ class DeckFlip extends StatefulWidget {
 
 class _DeckFlipState extends State<DeckFlip>
     with SingleTickerProviderStateMixin {
+  static const Color _adGradientStart = Color(0xFFFF9800);
+  static const Color _adGradientEnd = Color(0xFFFFB74D);
+  static const Color _vipColor = Color(0xFF28A745);
+
   late AnimationController _controller;
   late Animation<double> _flipAnim;
   bool isFront = true;
   bool canTap = false;
+  bool _isShowingRewarded = false;
 
   @override
   void initState() {
@@ -37,19 +46,44 @@ class _DeckFlipState extends State<DeckFlip>
     _initAnimation();
     SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
     _autoFlip();
-    // Preload: kullanıcıyı bekletmeyelim. Hazırsa anında gösteririz.
-    AppInterstitials.gameStart.preload(AdMobIds.gameStartInterstitial);
+    AppRewardedAds.deckUnlock.preload(AdMobIds.deckRewarded);
+  }
+
+  bool _needsRewardedToPlay(BuildContext context) {
+    if (context.read<IsUserPremiumCubit>().state) return false;
+    if (!widget.deck.isAdDeck) return false;
+    return !context
+        .read<DeckPlayCreditsCubit>()
+        .hasCredits(widget.deck.deckName);
   }
 
   Future<void> _startGameWithInterstitialPolicy() async {
-    if (context.read<IsUserPremiumCubit>().state) {
-      _navigateToGamePage();
-      return;
-    }
-
-    // Interstitial artık oyun başlangıcında gösterilmiyor.
-    // Oyun bittikten sonra Result sayfasında değerlendirilecek.
+    context.read<CurrentDeckCubit>().setDeck(widget.deck);
     _navigateToGamePage();
+  }
+
+  Future<void> _showRewardedAndStart() async {
+    if (_isShowingRewarded) return;
+    setState(() => _isShowingRewarded = true);
+
+    final creditsCubit = context.read<DeckPlayCreditsCubit>();
+    final deckName = widget.deck.deckName;
+
+    final rewarded = await DeckRewardedAdHelper.watchForDeckUnlock(
+      context: context,
+      onReward: () => creditsCubit.grantCredits(deckName),
+    );
+
+    if (!mounted) return;
+    setState(() => _isShowingRewarded = false);
+
+    if (!rewarded) return;
+
+    await context
+        .read<DisplayCurrentCardListCubit>()
+        .loadCardNames(widget.deck.namesFilePath);
+    if (!mounted) return;
+    await _startGameWithInterstitialPolicy();
   }
 
   void _navigateToGamePage() {
@@ -138,33 +172,46 @@ class _DeckFlipState extends State<DeckFlip>
         ),
         BlocBuilder<IsUserPremiumCubit, bool>(
           builder: (context, userIsPremium) {
-            // Kilit gösterme koşulları
-            if (!widget.deck.isPremium ||
-                (widget.deck.isPremium && userIsPremium)) {
-              return const SizedBox.shrink();
-            }
+            if (userIsPremium) return const SizedBox.shrink();
 
-            // Kilit gösterilecek durum: deck premium ve kullanıcı premium değil
-            return Positioned(
-              right: 8,
-              bottom: 8,
-              child: Hero(
-                tag: "lock_${widget.deck.deckName}",
-                child: Container(
-                  width: 72.h,
-                  height: 72.h,
-                  decoration: BoxDecoration(
-                    color: Colors.black.withOpacity(0.5),
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(
-                    Icons.lock,
-                    color: Colors.white,
-                    size: 40.h,
+            if (widget.deck.isPremium) {
+              return Positioned(
+                right: 8,
+                bottom: 8,
+                child: Hero(
+                  tag: "lock_${widget.deck.deckName}",
+                  child: Container(
+                    width: 72.h,
+                    height: 72.h,
+                    decoration: BoxDecoration(
+                      color: Colors.black.withOpacity(0.5),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      Icons.lock,
+                      color: Colors.white,
+                      size: 40.h,
+                    ),
                   ),
                 ),
-              ),
-            );
+              );
+            }
+
+            if (widget.deck.isAdDeck &&
+                !context
+                    .read<DeckPlayCreditsCubit>()
+                    .hasCredits(widget.deck.deckName)) {
+              return Positioned(
+                right: 8,
+                bottom: 8,
+                child: Hero(
+                  tag: "ad_${widget.deck.deckName}",
+                  child: AdWatchIconBadge(size: 72.h, iconSize: 44.h),
+                ),
+              );
+            }
+
+            return const SizedBox.shrink();
           },
         ),
       ],
@@ -414,32 +461,36 @@ class _DeckFlipState extends State<DeckFlip>
             onTap: _flipBackAndClose,
             child: BlocBuilder<IsUserPremiumCubit, bool>(
               builder: (context, userIsPremium) {
-                Color backgroundColor;
+                return BlocBuilder<DeckPlayCreditsCubit, Map<String, int>>(
+                  builder: (context, _) {
+                    final showVIP =
+                        widget.deck.isPremium && !userIsPremium;
+                    final showWatchAd =
+                        !showVIP && _needsRewardedToPlay(context);
 
-                // deck.isPremium false → mavi
-                // deck.isPremium true & userIsPremium false → yeşil
-                // diğer durumlar → mavi
-                if (!widget.deck.isPremium ||
-                    (widget.deck.isPremium && userIsPremium)) {
-                  backgroundColor = AppColors.primary; // mavi
-                } else {
-                  backgroundColor = const Color(0xFF28A745); // yeşil
-                }
+                    final Color backgroundColor = showVIP
+                        ? _vipColor
+                        : showWatchAd
+                            ? _adGradientStart
+                            : AppColors.primary;
 
-                return CustomPaint(
-                  painter:
-                      _ArrowBackgroundPainter(backgroundColor: backgroundColor),
-                  child: SizedBox(
-                    width: 60.h,
-                    height: 45.h,
-                    child: Center(
-                      child: Icon(
-                        Icons.arrow_back_ios_new_rounded,
-                        color: Colors.white, // ok hep beyaz
-                        size: 20.sp,
+                    return CustomPaint(
+                      painter: _ArrowBackgroundPainter(
+                        backgroundColor: backgroundColor,
                       ),
-                    ),
-                  ),
+                      child: SizedBox(
+                        width: 60.h,
+                        height: 45.h,
+                        child: Center(
+                          child: Icon(
+                            Icons.arrow_back_ios_new_rounded,
+                            color: Colors.white,
+                            size: 20.sp,
+                          ),
+                        ),
+                      ),
+                    );
+                  },
                 );
               },
             ),
@@ -448,72 +499,103 @@ class _DeckFlipState extends State<DeckFlip>
           // Oyna / VIP butonu
           BlocBuilder<IsUserPremiumCubit, bool>(
             builder: (context, userIsPremium) {
-              bool showVIP = widget.deck.isPremium && !userIsPremium;
-              Color gradientStart =
-                  showVIP ? const Color(0xFF28A745) : const Color(0xFF007BFF);
-              Color gradientEnd =
-                  showVIP ? const Color(0xFF2ECC71) : const Color(0xFF339CFF);
+              return BlocBuilder<DeckPlayCreditsCubit, Map<String, int>>(
+                builder: (context, _) {
+                  final showVIP =
+                      widget.deck.isPremium && !userIsPremium;
+                  final showWatchAd =
+                      !showVIP && _needsRewardedToPlay(context);
 
-              return GestureDetector(
-                onTap: () async {
-                  if (showVIP) {
-                    final cubit = context.read<BottomNavCubit>();
+                  Color gradientStart = showVIP
+                      ? _vipColor
+                      : showWatchAd
+                          ? _adGradientStart
+                          : const Color(0xFF007BFF);
+                  Color gradientEnd = showVIP
+                      ? const Color(0xFF2ECC71)
+                      : showWatchAd
+                          ? _adGradientEnd
+                          : const Color(0xFF339CFF);
 
-                    Navigator.of(context).pop();
+                  return GestureDetector(
+                    onTap: () async {
+                      if (_isShowingRewarded) return;
 
-                    await Future.delayed(const Duration(milliseconds: 300));
+                      if (showVIP) {
+                        final cubit = context.read<BottomNavCubit>();
+                        Navigator.of(context).pop();
+                        await Future.delayed(
+                            const Duration(milliseconds: 300));
+                        cubit.changePage(0);
+                        return;
+                      }
 
-// artık context silinmiş olsa bile sorun yok
-                    cubit.changePage(0);
-                  } else {
-                    await context
-                        .read<DisplayCurrentCardListCubit>()
-                        .loadCardNames(widget.deck.namesFilePath);
-                    await _startGameWithInterstitialPolicy();
-                  }
-                },
-                child: Container(
-                    padding:
-                        EdgeInsets.symmetric(horizontal: 24.w, vertical: 10.h),
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [gradientStart, gradientEnd],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
+                      if (showWatchAd) {
+                        await _showRewardedAndStart();
+                        return;
+                      }
+
+                      await context
+                          .read<DisplayCurrentCardListCubit>()
+                          .loadCardNames(widget.deck.namesFilePath);
+                      await _startGameWithInterstitialPolicy();
+                    },
+                    child: Container(
+                      padding: EdgeInsets.symmetric(
+                          horizontal: 24.w, vertical: 10.h),
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [gradientStart, gradientEnd],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        borderRadius: BorderRadius.circular(12.r),
+                        border: Border.all(color: Colors.white, width: 2.sp),
+                        boxShadow: [
+                          BoxShadow(
+                            color: (showVIP
+                                    ? Colors.greenAccent
+                                    : showWatchAd
+                                        ? Colors.orangeAccent
+                                        : Colors.blueAccent)
+                                .withOpacity(0.4),
+                            blurRadius: 8,
+                            offset: const Offset(0, 3),
+                          ),
+                        ],
                       ),
-                      borderRadius: BorderRadius.circular(12.r),
-                      border: Border.all(color: Colors.white, width: 2.sp),
-                      boxShadow: [
-                        BoxShadow(
-                          color:
-                              (showVIP ? Colors.greenAccent : Colors.blueAccent)
-                                  .withOpacity(0.4),
-                          blurRadius: 8,
-                          offset: const Offset(0, 3),
-                        ),
-                      ],
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (showWatchAd) ...[
+                            AdWatchIconButton(size: 22.sp),
+                            SizedBox(width: 6.w),
+                          ],
+                          Text(
+                            showVIP
+                                ? 'VIP Satın Al'
+                                : showWatchAd
+                                    ? 'Reklam İzle Oyna'
+                                    : 'Oyna!',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 18.sp,
+                              letterSpacing: 0.5,
+                            ),
+                          ),
+                          if (showVIP) const SizedBox(width: 6),
+                          if (showVIP)
+                            FaIcon(
+                              FontAwesomeIcons.crown,
+                              color: Colors.yellow,
+                              size: 20.sp,
+                            ),
+                        ],
+                      ),
                     ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          showVIP ? "VIP Satın Al" : "Oyna!",
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 18.sp,
-                            letterSpacing: 0.5,
-                          ),
-                        ),
-                        if (showVIP) const SizedBox(width: 6),
-                        if (showVIP)
-                          FaIcon(
-                            FontAwesomeIcons.crown,
-                            color: Colors.yellow,
-                            size: 20.sp,
-                          ),
-                      ],
-                    )),
+                  );
+                },
               );
             },
           ),

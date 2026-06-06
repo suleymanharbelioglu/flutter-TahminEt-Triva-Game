@@ -234,7 +234,7 @@
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>NSUserTrackingUsageDescription</key>
-	<string>Reklamları kişiselleştirmek ve uygulamayı geliştirmek için cihaz tanımlayıcılarını kullanmamıza izin ver.</string>
+	<string>Daha ilgili reklamlar gösterebilmek ve uygulama deneyimini iyileştirmek için takip izni isteyeceğiz.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

@@ -1,6 +1,8 @@
+import 'package:ben_kimim/common/widget/ads/ad_watch_icon.dart';
 import 'package:ben_kimim/common/helper/sound/sound.dart';
 import 'package:ben_kimim/common/widget/deck/deck_flip.dart';
 import 'package:ben_kimim/presentation/bottom_nav/bloc/bottom_nav_cubit.dart';
+import 'package:ben_kimim/presentation/game/bloc/deck_play_credits_cubit.dart';
 import 'package:ben_kimim/presentation/premium/bloc/is_user_premium_cubit.dart';
 import 'package:flutter/material.dart';
 import 'package:ben_kimim/domain/deck/entity/deck.dart';
@@ -17,12 +19,16 @@ class DeckCover extends StatelessWidget {
       onTap: () async {
         await precacheImage(AssetImage(deck.onGorselAdress), context);
         await precacheImage(AssetImage(deck.arkaGorselAdress), context);
-        await SoundHelper.playClick();
+        if (!context.mounted) return;
 
+        await SoundHelper.playClick();
+        if (!context.mounted) return;
+
+        final bottomNavCubit = context.read<BottomNavCubit>();
         Navigator.of(context).push(
           PageRouteBuilder(
             pageBuilder: (_, __, ___) => BlocProvider.value(
-              value: context.read<BottomNavCubit>(),
+              value: bottomNavCubit,
               child: DeckFlip(deck: deck),
             ),
             opaque: false,
@@ -80,29 +86,47 @@ class DeckCover extends StatelessWidget {
             ),
             BlocBuilder<IsUserPremiumCubit, bool>(
               builder: (context, userIsPremium) {
-                if (deck.isPremium && !userIsPremium) {
-                  return Positioned(
-                    right: 8.h,
-                    bottom: 8.h,
-                    child: Hero(
-                      tag: "lock_${deck.deckName}",
-                      child: Container(
-                        width: 36.h,
-                        height: 36.h,
-                        decoration: BoxDecoration(
-                          color: Colors.black.withOpacity(0.5),
-                          shape: BoxShape.circle,
+                return BlocBuilder<DeckPlayCreditsCubit, Map<String, int>>(
+                  builder: (context, credits) {
+                    if (userIsPremium) return const SizedBox.shrink();
+
+                    if (deck.isPremium) {
+                      return Positioned(
+                        right: 8.h,
+                        bottom: 8.h,
+                        child: Hero(
+                          tag: "lock_${deck.deckName}",
+                          child: Container(
+                            width: 36.h,
+                            height: 36.h,
+                            decoration: BoxDecoration(
+                              color: Colors.black.withOpacity(0.5),
+                              shape: BoxShape.circle,
+                            ),
+                            child: Icon(
+                              Icons.lock,
+                              color: Colors.white,
+                              size: 20.h,
+                            ),
+                          ),
                         ),
-                        child: Icon(
-                          Icons.lock,
-                          color: Colors.white,
-                          size: 20.h,
+                      );
+                    }
+
+                    if (deck.isAdDeck && (credits[deck.deckName] ?? 0) <= 0) {
+                      return Positioned(
+                        right: 8.h,
+                        bottom: 8.h,
+                        child: Hero(
+                          tag: "ad_${deck.deckName}",
+                          child: AdWatchIconBadge(size: 36.h, iconSize: 22.h),
                         ),
-                      ),
-                    ),
-                  );
-                }
-                return const SizedBox.shrink();
+                      );
+                    }
+
+                    return const SizedBox.shrink();
+                  },
+                );
               },
             ),
           ],
