@@ -16,7 +16,7 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 # https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
 # In Windows, build-name is used as the major, minor, and patch parts
 # of the product and file versions while build-number is used as the build suffix.
-version: 1.2.0+23
+version: 1.2.3+26
 
 environment:
   # Flutter'ın kararlı sürümleriyle geniş uyumluluk için aralığı koruyoruz.
@@ -45,7 +45,8 @@ dependencies:
   sensors_plus: ^7.0.0
   font_awesome_flutter: ^10.7.0 # Daha stabil bir sürüme çekildi.
   google_fonts: ^6.3.2
-  google_mobile_ads: ^6.0.0
+  google_mobile_ads: ^8.0.0
+  gma_mediation_unity: ^1.8.1
   app_tracking_transparency: ^2.0.6
   purchases_flutter: ^8.10.0
   purchases_ui_flutter: ^8.10.0

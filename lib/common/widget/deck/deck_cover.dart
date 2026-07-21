@@ -17,11 +17,17 @@ class DeckCover extends StatelessWidget {
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: () async {
-        await precacheImage(AssetImage(deck.onGorselAdress), context);
-        await precacheImage(AssetImage(deck.arkaGorselAdress), context);
+        try {
+          await precacheImage(AssetImage(deck.onGorselAdress), context);
+          await precacheImage(AssetImage(deck.arkaGorselAdress), context);
+        } catch (_) {}
+
         if (!context.mounted) return;
 
-        await SoundHelper.playClick();
+        try {
+          await SoundHelper.playClick();
+        } catch (_) {}
+
         if (!context.mounted) return;
 
         final bottomNavCubit = context.read<BottomNavCubit>();

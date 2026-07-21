@@ -5,13 +5,13 @@ import 'package:ben_kimim/core/configs/ads/admob_ids.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-/// Geçiş reklamı: 90 saniyede bir gösterilir.
+/// Geçiş reklamı: 120 saniyede bir gösterilir.
 /// [PhoneToForeheadPage] ve [GamePage] üzerindeyken asla gösterilmez;
 /// süre dolmuşsa bu sayfalardan çıkınca gösterilir.
 class InterstitialSchedulerCubit extends Cubit<void> {
   InterstitialSchedulerCubit() : super(null);
 
-  static const _interval = Duration(seconds: 90);
+  static const _interval = Duration(seconds: 120);
 
   Timer? _timer;
   int _blockedDepth = 0;
