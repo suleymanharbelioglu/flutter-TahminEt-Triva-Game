@@ -5,12 +5,14 @@ import 'package:ben_kimim/core/configs/ads/admob_ids.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-/// Geçiş reklamı: 120 saniyede bir gösterilir.
+/// Geçiş reklamı: uygulama açılışında ilk gösterim 2 dk sonra,
+/// sonrasında 120 saniyede bir.
 /// [PhoneToForeheadPage] ve [GamePage] üzerindeyken asla gösterilmez;
 /// süre dolmuşsa bu sayfalardan çıkınca gösterilir.
 class InterstitialSchedulerCubit extends Cubit<void> {
   InterstitialSchedulerCubit() : super(null);
 
+  static const _initialDelay = Duration(seconds: 120);
   static const _interval = Duration(seconds: 120);
 
   Timer? _timer;
@@ -34,9 +36,17 @@ class InterstitialSchedulerCubit extends Cubit<void> {
     if (!_enabled) return;
     _timer?.cancel();
     AppInterstitials.gameStart.preload(AdMobIds.gameStartInterstitial);
-    _timer = Timer.periodic(_interval, (_) => _onIntervalElapsed());
+    // İlk açılışta 2 dk bekle; sonra düzenli 120 sn aralığına geç.
+    _timer = Timer(_initialDelay, () {
+      if (!_enabled) return;
+      _onIntervalElapsed();
+      _timer = Timer.periodic(_interval, (_) => _onIntervalElapsed());
+    });
     if (kDebugMode) {
-      debugPrint('InterstitialScheduler: started (${_interval.inSeconds}s interval)');
+      debugPrint(
+        'InterstitialScheduler: started '
+        '(first in ${_initialDelay.inSeconds}s, then every ${_interval.inSeconds}s)',
+      );
     }
   }
 

@@ -1,6 +1,4 @@
 import 'package:ben_kimim/core/ads/interstitial_ad_cache.dart';
-import 'package:ben_kimim/core/ads/rewarded_ad_cache.dart';
-import 'package:ben_kimim/core/configs/ads/admob_ids.dart';
 import 'package:ben_kimim/core/configs/theme/app_theme.dart';
 import 'package:ben_kimim/core/configs/revenuecat/revenuecat_config.dart';
 import 'package:ben_kimim/presentation/all_decks/bloc/bilim_ve_genelk_decks_cubit.dart';
@@ -90,7 +88,6 @@ Future<void> main() async {
       debugPrint('APP START: MobileAds.initialize completed');
     }
     AppInterstitials.preloadAll();
-    AppRewardedAds.deckUnlock.preload(AdMobIds.deckRewarded);
   } catch (e, st) {
     debugPrint('MobileAds.initialize failed: $e\n$st');
   }

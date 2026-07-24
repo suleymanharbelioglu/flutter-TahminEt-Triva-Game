@@ -2,8 +2,8 @@ import 'dart:async';
 import 'dart:math';
 import 'package:ben_kimim/common/widget/ads/ad_watch_icon.dart';
 import 'package:ben_kimim/common/navigator/app_navigator.dart';
-import 'package:ben_kimim/core/ads/deck_rewarded_ad_helper.dart';
-import 'package:ben_kimim/core/ads/rewarded_ad_cache.dart';
+import 'package:ben_kimim/core/ads/deck_interstitial_ad_helper.dart';
+import 'package:ben_kimim/core/ads/interstitial_ad_cache.dart';
 import 'package:ben_kimim/core/configs/ads/admob_ids.dart';
 import 'package:ben_kimim/core/configs/theme/app_color.dart';
 import 'package:ben_kimim/presentation/bottom_nav/bloc/bottom_nav_cubit.dart';
@@ -38,7 +38,7 @@ class _DeckFlipState extends State<DeckFlip>
   late Animation<double> _flipAnim;
   bool isFront = true;
   bool canTap = false;
-  bool _isShowingRewarded = false;
+  bool _isShowingAd = false;
 
   @override
   void initState() {
@@ -46,10 +46,10 @@ class _DeckFlipState extends State<DeckFlip>
     _initAnimation();
     SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
     _autoFlip();
-    AppRewardedAds.deckUnlock.preload(AdMobIds.deckRewarded);
+    AppInterstitials.deckUnlock.preload(AdMobIds.gameStartInterstitial);
   }
 
-  bool _needsRewardedToPlay(BuildContext context) {
+  bool _needsAdToPlay(BuildContext context) {
     if (context.read<IsUserPremiumCubit>().state) return false;
     if (!widget.deck.isAdDeck) return false;
     return !context
@@ -62,22 +62,22 @@ class _DeckFlipState extends State<DeckFlip>
     _navigateToGamePage();
   }
 
-  Future<void> _showRewardedAndStart() async {
-    if (_isShowingRewarded) return;
-    setState(() => _isShowingRewarded = true);
+  Future<void> _showAdAndStart() async {
+    if (_isShowingAd) return;
+    setState(() => _isShowingAd = true);
 
     final creditsCubit = context.read<DeckPlayCreditsCubit>();
     final deckName = widget.deck.deckName;
 
-    final rewarded = await DeckRewardedAdHelper.watchForDeckUnlock(
+    final unlocked = await DeckInterstitialAdHelper.watchForDeckUnlock(
       context: context,
-      onReward: () => creditsCubit.grantCredits(deckName),
+      onUnlocked: () => creditsCubit.grantCredits(deckName),
     );
 
     if (!mounted) return;
-    setState(() => _isShowingRewarded = false);
+    setState(() => _isShowingAd = false);
 
-    if (!rewarded) return;
+    if (!unlocked) return;
 
     await context
         .read<DisplayCurrentCardListCubit>()
@@ -466,7 +466,7 @@ class _DeckFlipState extends State<DeckFlip>
                     final showVIP =
                         widget.deck.isPremium && !userIsPremium;
                     final showWatchAd =
-                        !showVIP && _needsRewardedToPlay(context);
+                        !showVIP && _needsAdToPlay(context);
 
                     final Color backgroundColor = showVIP
                         ? _vipColor
@@ -504,7 +504,7 @@ class _DeckFlipState extends State<DeckFlip>
                   final showVIP =
                       widget.deck.isPremium && !userIsPremium;
                   final showWatchAd =
-                      !showVIP && _needsRewardedToPlay(context);
+                      !showVIP && _needsAdToPlay(context);
 
                   Color gradientStart = showVIP
                       ? _vipColor
@@ -519,7 +519,7 @@ class _DeckFlipState extends State<DeckFlip>
 
                   return GestureDetector(
                     onTap: () async {
-                      if (_isShowingRewarded) return;
+                      if (_isShowingAd) return;
 
                       if (showVIP) {
                         final cubit = context.read<BottomNavCubit>();
@@ -531,7 +531,7 @@ class _DeckFlipState extends State<DeckFlip>
                       }
 
                       if (showWatchAd) {
-                        await _showRewardedAndStart();
+                        await _showAdAndStart();
                         return;
                       }
 

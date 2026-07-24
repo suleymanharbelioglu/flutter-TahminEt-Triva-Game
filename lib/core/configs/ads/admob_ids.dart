@@ -19,19 +19,12 @@ class AdMobIds {
   static const String _testBanner = 'ca-app-pub-3940256099942544/2934735716';
   static const String _testInterstitial =
       'ca-app-pub-3940256099942544/4411468910';
-  static const String _testRewarded =
-      'ca-app-pub-3940256099942544/5224354917';
 
   // Production ad unit IDs (senin gerçek ID'lerin).
   static const String _prodGameStartInterstitialIOS =
       'ca-app-pub-6970688308215711/5859365403';
   static const String _prodGameStartInterstitialAndroid =
       'ca-app-pub-6970688308215711/3866393700';
-
-  static const String _prodDeckRewardedIOS =
-      'ca-app-pub-6970688308215711/6890165378';
-  static const String _prodDeckRewardedAndroid =
-      'ca-app-pub-6970688308215711/3529504861';
 
   static const String _prodHomePageBannerIOS =
       'ca-app-pub-6970688308215711/1213543385';
@@ -62,18 +55,6 @@ class AdMobIds {
         return _useTestAndroid
             ? _testInterstitial
             : _prodGameStartInterstitialAndroid;
-      default:
-        return '';
-    }
-  }
-
-  static String get deckRewarded {
-    if (kIsWeb) return '';
-    switch (defaultTargetPlatform) {
-      case TargetPlatform.iOS:
-        return _useTestIos ? _testRewarded : _prodDeckRewardedIOS;
-      case TargetPlatform.android:
-        return _useTestAndroid ? _testRewarded : _prodDeckRewardedAndroid;
       default:
         return '';
     }

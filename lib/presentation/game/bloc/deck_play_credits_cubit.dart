@@ -1,10 +1,10 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-/// Reklam izleyerek açılan desteler için kalan oyun hakkı (2 tur / reklam).
+/// Reklam izleyerek açılan desteler için kalan oyun hakkı (1 tur / reklam).
 class DeckPlayCreditsCubit extends Cubit<Map<String, int>> {
   DeckPlayCreditsCubit() : super(const {});
 
-  static const int roundsPerAd = 2;
+  static const int roundsPerAd = 1;
 
   int creditsFor(String deckName) => state[deckName] ?? 0;
 

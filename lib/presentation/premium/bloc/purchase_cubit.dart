@@ -45,7 +45,10 @@ class PurchaseCubit extends Cubit<PurchaseState> {
 
       final CustomerInfo customerInfo;
       if (package != null) {
-        customerInfo = await Purchases.purchasePackage(package);
+        final result = await Purchases.purchase(
+          PurchaseParams.package(package),
+        );
+        customerInfo = result.customerInfo;
       } else {
         // Offering'de paket yoksa (ör. Weekly eksik) doğrudan Store ürününden satın al.
         final storeId = productId.split(':').first;
@@ -64,7 +67,10 @@ class PurchaseCubit extends Cubit<PurchaseState> {
           (sp) => _baseId(sp.identifier) == base,
           orElse: () => products.first,
         );
-        customerInfo = await Purchases.purchaseStoreProduct(storeProduct);
+        final result = await Purchases.purchase(
+          PurchaseParams.storeProduct(storeProduct),
+        );
+        customerInfo = result.customerInfo;
       }
       // Sonuç ekranında doğru planı göstermek için:
       // - RevenueCat aktif aboneliği bazen birden fazla döndürebilir

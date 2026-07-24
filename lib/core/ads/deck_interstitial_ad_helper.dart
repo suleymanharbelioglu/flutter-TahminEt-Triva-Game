@@ -1,24 +1,25 @@
 import 'package:ben_kimim/common/widget/ads/rewarded_ad_loading_page.dart';
-import 'package:ben_kimim/core/ads/rewarded_ad_cache.dart';
+import 'package:ben_kimim/core/ads/interstitial_ad_cache.dart';
 import 'package:ben_kimim/core/configs/ads/admob_ids.dart';
 import 'package:flutter/material.dart';
 
-/// Deste kilidi için rewarded reklam akışı.
-class DeckRewardedAdHelper {
-  DeckRewardedAdHelper._();
+/// Deste kilidi için geçiş (interstitial) reklam akışı.
+class DeckInterstitialAdHelper {
+  DeckInterstitialAdHelper._();
 
   static const Duration loadTimeout = Duration(seconds: 5);
 
-  /// Yükleme sayfası gösterir, reklam hazırsa oynatır.
-  /// 5 sn içinde yüklenmezse ödül verilip true döner (devam edilebilir).
+  /// Yükleme sayfası gösterir, geçiş reklamı hazırsa oynatır.
+  /// 5 sn içinde yüklenmezse hak verilip true döner (devam edilebilir).
   static Future<bool> watchForDeckUnlock({
     required BuildContext context,
-    required VoidCallback onReward,
+    required VoidCallback onUnlocked,
   }) async {
     if (!context.mounted) return false;
 
-    final cache = AppRewardedAds.deckUnlock;
-    cache.preload(AdMobIds.deckRewarded);
+    final cache = AppInterstitials.deckUnlock;
+    final adUnitId = AdMobIds.gameStartInterstitial;
+    cache.preload(adUnitId);
 
     final navigator = Navigator.of(context);
     navigator.push(
@@ -33,7 +34,7 @@ class DeckRewardedAdHelper {
     );
 
     final ready = await cache.waitUntilReady(
-      AdMobIds.deckRewarded,
+      adUnitId,
       timeout: loadTimeout,
     );
 
@@ -42,14 +43,19 @@ class DeckRewardedAdHelper {
     }
 
     if (ready) {
-      return cache.showIfReady(
-        onReward: onReward,
-        onDone: () => cache.preload(AdMobIds.deckRewarded),
+      final shown = await cache.showAndAwait(
+        onDone: () => cache.preload(adUnitId),
       );
+      if (shown) {
+        onUnlocked();
+        return true;
+      }
+      return false;
     }
 
-    onReward();
-    cache.preload(AdMobIds.deckRewarded);
+    // Reklam yüklenemezse oyunu engelleme.
+    onUnlocked();
+    cache.preload(adUnitId);
     return true;
   }
 }
