@@ -7,7 +7,6 @@ import 'package:ben_kimim/data/card/model/card_result.dart';
 import 'package:ben_kimim/presentation/bottom_nav/page/bottom_nav.dart';
 import 'package:ben_kimim/presentation/game/bloc/current_deck_cubit.dart';
 import 'package:ben_kimim/presentation/game/bloc/current_name_cubit.dart';
-import 'package:ben_kimim/presentation/game/bloc/deck_play_credits_cubit.dart';
 import 'package:ben_kimim/presentation/game/bloc/score_cubit.dart';
 import 'package:ben_kimim/presentation/game_result/bloc/result_cubit.dart';
 import 'package:ben_kimim/presentation/no_internet/page/no_internet.dart';
@@ -85,8 +84,7 @@ class _GameResultPageState extends State<GameResultPage> {
   bool _needsAdToPlayAgain(BuildContext context) {
     if (context.read<IsUserPremiumCubit>().state) return false;
     final deck = context.read<CurrentDeckCubit>().state;
-    if (deck == null || !deck.isAdDeck) return false;
-    return !context.read<DeckPlayCreditsCubit>().hasCredits(deck.deckName);
+    return deck != null && deck.isAdDeck;
   }
 
   Future<void> _onPlayAgainPressed(BuildContext context) async {
@@ -95,11 +93,9 @@ class _GameResultPageState extends State<GameResultPage> {
     if (_needsAdToPlayAgain(context)) {
       setState(() => _isShowingAd = true);
 
-      final deck = context.read<CurrentDeckCubit>().state!;
-      final creditsCubit = context.read<DeckPlayCreditsCubit>();
       final unlocked = await DeckInterstitialAdHelper.watchForDeckUnlock(
         context: context,
-        onUnlocked: () => creditsCubit.grantCredits(deck.deckName),
+        onUnlocked: () {},
       );
 
       if (!mounted) return;
@@ -228,20 +224,16 @@ class _GameResultPageState extends State<GameResultPage> {
   }
 
   Widget _buildPlayAgainButton(BuildContext context) {
-    return BlocBuilder<DeckPlayCreditsCubit, Map<String, int>>(
-      builder: (context, _) {
-        final needsAd = _needsAdToPlayAgain(context);
-        final label = needsAd ? 'Reklam İzle Oyna' : 'Tekrar Oyna';
+    final needsAd = _needsAdToPlayAgain(context);
+    final label = needsAd ? 'Reklam İzle Oyna' : 'Tekrar Oyna';
 
-        return Padding(
-          padding: EdgeInsets.all(16.r),
-          child: SizedBox(
-            height: 56.h,
-            width: double.infinity,
-            child: ElevatedButton(
-          onPressed: _isShowingAd
-              ? null
-              : () => _onPlayAgainPressed(context),
+    return Padding(
+      padding: EdgeInsets.all(16.r),
+      child: SizedBox(
+        height: 56.h,
+        width: double.infinity,
+        child: ElevatedButton(
+          onPressed: _isShowingAd ? null : () => _onPlayAgainPressed(context),
           style: ElevatedButton.styleFrom(
             backgroundColor: AppColors.secondary,
             shape: RoundedRectangleBorder(
@@ -263,10 +255,8 @@ class _GameResultPageState extends State<GameResultPage> {
               ),
             ],
           ),
-            ),
-          ),
-        );
-      },
+        ),
+      ),
     );
   }
 }

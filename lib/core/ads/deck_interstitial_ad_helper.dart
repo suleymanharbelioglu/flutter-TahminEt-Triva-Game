@@ -1,7 +1,9 @@
 import 'package:ben_kimim/common/widget/ads/rewarded_ad_loading_page.dart';
 import 'package:ben_kimim/core/ads/interstitial_ad_cache.dart';
 import 'package:ben_kimim/core/configs/ads/admob_ids.dart';
+import 'package:ben_kimim/presentation/game/bloc/interstitial_scheduler_cubit.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 
 /// Deste kilidi için geçiş (interstitial) reklam akışı.
 class DeckInterstitialAdHelper {
@@ -48,6 +50,9 @@ class DeckInterstitialAdHelper {
       );
       if (shown) {
         onUnlocked();
+        if (context.mounted) {
+          context.read<InterstitialSchedulerCubit>().postponeNextShow();
+        }
         return true;
       }
       return false;

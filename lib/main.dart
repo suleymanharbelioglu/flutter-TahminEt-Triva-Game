@@ -1,4 +1,3 @@
-import 'package:ben_kimim/core/ads/interstitial_ad_cache.dart';
 import 'package:ben_kimim/core/configs/theme/app_theme.dart';
 import 'package:ben_kimim/core/configs/revenuecat/revenuecat_config.dart';
 import 'package:ben_kimim/presentation/all_decks/bloc/bilim_ve_genelk_decks_cubit.dart';
@@ -16,7 +15,6 @@ import 'package:ben_kimim/presentation/bottom_nav/bloc/bottom_nav_cubit.dart';
 import 'package:ben_kimim/presentation/game/bloc/current_name_cubit.dart';
 import 'package:ben_kimim/presentation/game/bloc/display_current_card_list_cubit.dart';
 import 'package:ben_kimim/presentation/game/bloc/current_deck_cubit.dart';
-import 'package:ben_kimim/presentation/game/bloc/deck_play_credits_cubit.dart';
 import 'package:ben_kimim/presentation/game/bloc/interstitial_scheduler_cubit.dart';
 import 'package:ben_kimim/presentation/game/bloc/score_cubit.dart';
 import 'package:ben_kimim/presentation/game/bloc/timer_cubit.dart';
@@ -34,7 +32,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:purchases_flutter/purchases_flutter.dart';
 import 'package:flutter/foundation.dart';
 
@@ -65,32 +62,7 @@ Future<void> main() async {
 
   await initializeDependencies();
 
-  // AdMob: runApp öncesi await — aksi halde ilk interstitial/banner yükleme sıklıkla başarısız olur.
-  try {
-    if (kDebugMode) {
-      // iOS gerçek cihaz logunda önerilen test device id'yi ekle (No ad to show → test'e zorla).
-      // Not: Uygulama sil-yükle yapınca bu id değişebilir.
-      await MobileAds.instance.updateRequestConfiguration(
-        RequestConfiguration(
-          testDeviceIds: [
-            // iOS (logdan)
-            'f227aa022f3f2850308c622f36a4782e',
-            // iOS (son logdan)
-            '9762f7d4d9f849eb9d3e5c9489e11fc9',
-            // Android (eski debug id)
-            'D09DE3465F0FF17A7C7AA0997E40DFCA',
-          ],
-        ),
-      );
-    }
-    await MobileAds.instance.initialize();
-    if (kDebugMode) {
-      debugPrint('APP START: MobileAds.initialize completed');
-    }
-    AppInterstitials.preloadAll();
-  } catch (e, st) {
-    debugPrint('MobileAds.initialize failed: $e\n$st');
-  }
+  // Mobile Ads: UMP + ATT sonrası Splash'te init edilir (sırayı bozma).
 
   runApp(const MyApp());
 }
@@ -157,7 +129,6 @@ class MyApp extends StatelessWidget {
             BlocProvider(create: (context) => AdsCounterCubit()),
             BlocProvider(create: (context) => InterstitialSchedulerCubit()),
             BlocProvider(create: (context) => CurrentDeckCubit()),
-            BlocProvider(create: (context) => DeckPlayCreditsCubit()),
           ],
           child: _InterstitialBootstrap(
             child: MaterialApp(

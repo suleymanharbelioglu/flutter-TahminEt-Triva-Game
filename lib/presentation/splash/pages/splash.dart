@@ -1,4 +1,5 @@
 import 'package:ben_kimim/common/navigator/app_navigator.dart';
+import 'package:ben_kimim/core/ads/ads_bootstrap.dart';
 import 'package:ben_kimim/core/configs/assets/app_images.dart';
 import 'package:ben_kimim/presentation/bottom_nav/page/bottom_nav.dart';
 import 'package:ben_kimim/presentation/splash/bloc/splash_cubit.dart';
@@ -37,11 +38,12 @@ class _SplashPageState extends State<SplashPage> {
     if (_started) return;
     _started = true;
 
+    // 1) UMP → 2) ATT → 3) Ads init/preload (ATT reddedilse bile reklam yüklenir)
     await _handleAdMobPrivacyMessaging();
     await _handleATTOnSplash();
+    await AdsBootstrap.initializeAndPreload();
     if (!mounted) return;
 
-    // ATT cevabından sonra splash yüklemelerini başlat.
     context.read<SplashCubit>().startSplash(context);
   }
 
@@ -82,7 +84,14 @@ class _SplashPageState extends State<SplashPage> {
       if (!completer.isCompleted) completer.complete();
     }
 
-    await completer.future;
+    // Callback gelmezse splash sonsuza takılmasın.
+    try {
+      await completer.future.timeout(const Duration(seconds: 12));
+    } on TimeoutException {
+      if (kDebugMode) {
+        debugPrint('UMP flow timed out; continuing to ATT/ads');
+      }
+    }
   }
 
   Future<void> _handleATTOnSplash() async {
@@ -98,11 +107,16 @@ class _SplashPageState extends State<SplashPage> {
     if (status != TrackingStatus.notDetermined) return;
     if (!mounted) return;
 
+    // UMP modalı kapandıktan hemen sonra ATT bazen görünmez; kısa gecikme.
+    await Future.delayed(const Duration(milliseconds: 500));
+    if (!mounted) return;
+
     try {
       await AppTrackingTransparency.requestTrackingAuthorization();
     } catch (_) {
       // iOS 14 altı / beklenmeyen durumlarda sessizce geç.
     }
+    // Tracking denied olsa da AdsBootstrap reklam yüklemeye devam eder.
   }
 
   @override

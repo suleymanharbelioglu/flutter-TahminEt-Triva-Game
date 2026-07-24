@@ -28,20 +28,20 @@ PODS:
   - path_provider_foundation (0.0.1):
     - Flutter
     - FlutterMacOS
-  - purchases_flutter (8.11.0):
+  - purchases_flutter (10.4.2):
     - Flutter
-    - PurchasesHybridCommon (= 14.3.0)
-  - purchases_ui_flutter (8.11.0):
+    - PurchasesHybridCommon (= 18.22.1)
+  - purchases_ui_flutter (10.4.2):
     - Flutter
-    - PurchasesHybridCommonUI (= 14.3.0)
-  - PurchasesHybridCommon (14.3.0):
-    - RevenueCat (= 5.32.0)
-  - PurchasesHybridCommonUI (14.3.0):
-    - PurchasesHybridCommon (= 14.3.0)
-    - RevenueCatUI (= 5.32.0)
-  - RevenueCat (5.32.0)
-  - RevenueCatUI (5.32.0):
-    - RevenueCat (= 5.32.0)
+    - PurchasesHybridCommonUI (= 18.22.1)
+  - PurchasesHybridCommon (18.22.1):
+    - RevenueCat (= 5.81.0)
+  - PurchasesHybridCommonUI (18.22.1):
+    - PurchasesHybridCommon (= 18.22.1)
+    - RevenueCatUI (= 5.81.0)
+  - RevenueCat (5.81.0)
+  - RevenueCatUI (5.81.0):
+    - RevenueCat (= 5.81.0)
   - sensors_plus (0.0.1):
     - Flutter
   - shared_preferences_foundation (0.0.1):
@@ -130,12 +130,12 @@ SPEC CHECKSUMS:
   just_audio: 4e391f57b79cad2b0674030a00453ca5ce817eed
   package_info_plus: af8e2ca6888548050f16fa2f1938db7b5a5df499
   path_provider_foundation: 080d55be775b7414fd5a5ef3ac137b97b097e564
-  purchases_flutter: 3570127ba41583a75e553d68a763367007830eff
-  purchases_ui_flutter: 4f73ee267b1f50f72f71ece0d918fc5d0cb7f97f
-  PurchasesHybridCommon: 7f0944cc5411bdcd1ea5d69affa6a6f9aaf87b13
-  PurchasesHybridCommonUI: 8149f983d0d5fcc6d2536900c934d3dfb7cbed45
-  RevenueCat: 7e1d0768fb287c9983173c9b28e39ccbeeb828a9
-  RevenueCatUI: 61ddba6f94803f9b79c470ffe1e8b81d807c11ce
+  purchases_flutter: 64c9e64676b8b681ced103755d6989bec7fbad0c
+  purchases_ui_flutter: e5b61d93a7205f147bc45e8b96b664e2ad47281e
+  PurchasesHybridCommon: 5759975e7b63c093772fd92d8a9e5edbc6a809a8
+  PurchasesHybridCommonUI: 8a0dd9b2ef3d6b03897bbf142903120948f64aeb
+  RevenueCat: c692d9b9d123ce98acea28796abcd81f63e9f34a
+  RevenueCatUI: ff18bd10d26610c5010b4337e73975f1620acf2b
   sensors_plus: 6a11ed0c2e1d0bd0b20b4029d3bad27d96e0c65b
   shared_preferences_foundation: 7036424c3d8ec98dfe75ff1667cb0cd531ec82bb
   UnityAds: 07379b63b1044dcad98b3092319166fd6f2cfda4

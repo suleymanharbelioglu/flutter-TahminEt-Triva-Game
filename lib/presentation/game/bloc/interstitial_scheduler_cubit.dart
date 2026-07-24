@@ -14,11 +14,14 @@ class InterstitialSchedulerCubit extends Cubit<void> {
 
   static const _initialDelay = Duration(seconds: 120);
   static const _interval = Duration(seconds: 120);
+  static const deckWatchBonus = Duration(seconds: 40);
 
   Timer? _timer;
+  DateTime? _nextFireAt;
   int _blockedDepth = 0;
   bool _pending = false;
   bool _enabled = true;
+  bool _pastInitial = false;
 
   bool get isBlocked => _blockedDepth > 0;
 
@@ -27,21 +30,36 @@ class InterstitialSchedulerCubit extends Cubit<void> {
     if (!enabled) {
       _stop();
       _pending = false;
+      _pastInitial = false;
     } else {
       _start();
     }
   }
 
+  /// "Reklam İzle Oyna" sonrası: bir sonraki zamanlanmış geçiş reklamını
+  /// tek seferlik [bonus] kadar geciktirir.
+  void postponeNextShow({Duration bonus = deckWatchBonus}) {
+    if (!_enabled) return;
+
+    final remaining = _nextFireAt == null
+        ? (_pastInitial ? _interval : _initialDelay)
+        : _nextFireAt!.difference(DateTime.now());
+    final base = remaining.isNegative ? Duration.zero : remaining;
+    _scheduleNext(base + bonus);
+
+    if (kDebugMode) {
+      debugPrint(
+        'InterstitialScheduler: next show postponed by ${bonus.inSeconds}s '
+        '(wait ${(base + bonus).inSeconds}s)',
+      );
+    }
+  }
+
   void _start() {
     if (!_enabled) return;
-    _timer?.cancel();
+    _pastInitial = false;
     AppInterstitials.gameStart.preload(AdMobIds.gameStartInterstitial);
-    // İlk açılışta 2 dk bekle; sonra düzenli 120 sn aralığına geç.
-    _timer = Timer(_initialDelay, () {
-      if (!_enabled) return;
-      _onIntervalElapsed();
-      _timer = Timer.periodic(_interval, (_) => _onIntervalElapsed());
-    });
+    _scheduleNext(_initialDelay);
     if (kDebugMode) {
       debugPrint(
         'InterstitialScheduler: started '
@@ -50,9 +68,23 @@ class InterstitialSchedulerCubit extends Cubit<void> {
     }
   }
 
+  void _scheduleNext(Duration delay) {
+    _timer?.cancel();
+    _nextFireAt = DateTime.now().add(delay);
+    _timer = Timer(delay, _onTimerFire);
+  }
+
+  void _onTimerFire() {
+    if (!_enabled) return;
+    _pastInitial = true;
+    _onIntervalElapsed();
+    _scheduleNext(_interval);
+  }
+
   void _stop() {
     _timer?.cancel();
     _timer = null;
+    _nextFireAt = null;
   }
 
   void enterBlockedScreen() {

@@ -10,13 +10,13 @@
 ## Başlık (max 30) — 30 karakter
 
 ```
-Tahmin Et! Sessiz Sinema Oyunu
+Tahmin Et! - Ben kimim ? 
 ```
 
 ## Kısa açıklama (max 80) — 80 karakter
 
 ```
-Ben kimim oyunu · futbolcu bilme oyunu · ulkeler, marka, yasak kelime, ünlüleri!
+Sessiz sinema oyunu · futbolcu bilme oyunu · ülkeler, marka, yasak kelime, ünlü!
 ```
 
 ## Tam açıklama (max 4000) — 3996 karakter
@@ -87,7 +87,11 @@ SON: sessiz sinema oyunu, ben kimim oyunu, tahmin et oyunu, ulkeler, marka, yasa
 
 ## Güncelleme notu
 
+Play Console (`<tr-TR>`):
+
 ```
-• Performans ve kararlılık iyileştirmeleri
-• Küçük arayüz düzeltmeleri
+• Daha akıcı oyun ve deste deneyimi
+• Reklam zamanlaması iyileştirildi
+• Arayüz ve performans düzenlemeleri
+• Kararlılık iyileştirmeleri
 ```
