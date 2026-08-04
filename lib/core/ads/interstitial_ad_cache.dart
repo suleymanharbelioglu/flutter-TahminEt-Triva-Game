@@ -6,10 +6,21 @@ import 'package:flutter/widgets.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 
 /// Interstitial'ı önceden yükleyip (preload) hazırsa anında gösterir.
+///
+/// Fail olunca [preloadRetryDelay] ile otomatik yeniden dener.
+/// Show sırasında cache yoksa kısa süre yüklemeyi bekler.
 class InterstitialAdCache {
   InterstitialAd? _ad;
   bool _loading = false;
   DateTime? _loadedAt;
+  Timer? _retryTimer;
+  String? _lastAdUnitId;
+
+  /// Show anında cache yoksa yükleme için üst bekleme.
+  static const Duration showWaitTimeout = Duration(seconds: 5);
+
+  /// Preload fail sonrası yeniden deneme aralığı.
+  static const Duration preloadRetryDelay = Duration(seconds: 10);
 
   bool get isReady => _ad != null;
 
@@ -19,7 +30,12 @@ class InterstitialAdCache {
     if (adUnitId.isEmpty) return;
     if (_loading || _ad != null) return;
 
+    _lastAdUnitId = adUnitId;
+    _retryTimer?.cancel();
+    _retryTimer = null;
     _loading = true;
+    _log('preload start adUnit=$adUnitId');
+
     InterstitialAd.load(
       adUnitId: adUnitId,
       request: const AdRequest(),
@@ -28,30 +44,41 @@ class InterstitialAdCache {
           _loading = false;
           _ad = ad;
           _loadedAt = DateTime.now();
-          if (kDebugMode) {
-            debugPrint('Interstitial loaded: adUnitId=$adUnitId');
-          }
+          _log('preload OK (cached) adUnit=$adUnitId');
         },
         onAdFailedToLoad: (error) {
           _loading = false;
-          if (kDebugMode) {
-            debugPrint(
-              'Interstitial preload failed: adUnitId=$adUnitId code=${error.code} domain=${error.domain} message=${error.message}',
-            );
-          }
+          _log(
+            'preload FAIL adUnit=$adUnitId '
+            'code=${error.code} domain=${error.domain} message=${error.message}',
+          );
+          _schedulePreloadRetry(adUnitId);
         },
       ),
     );
   }
 
+  void _schedulePreloadRetry(String adUnitId) {
+    _retryTimer?.cancel();
+    _retryTimer = Timer(preloadRetryDelay, () {
+      _retryTimer = null;
+      _log('preload retry adUnit=$adUnitId');
+      preload(adUnitId);
+    });
+  }
+
   /// [timeout] dolana kadar reklamın hazır olmasını bekler.
   Future<bool> waitUntilReady(
     String adUnitId, {
-    Duration timeout = const Duration(seconds: 5),
+    Duration timeout = showWaitTimeout,
   }) async {
     if (isReady) return true;
     if (adUnitId.isEmpty) return false;
 
+    _log(
+      'wait for load adUnit=$adUnitId '
+      'timeout=${timeout.inSeconds}s loading=$isLoading',
+    );
     preload(adUnitId);
     final deadline = DateTime.now().add(timeout);
 
@@ -63,6 +90,7 @@ class InterstitialAdCache {
       }
     }
 
+    _log('wait timeout → no fill adUnit=$adUnitId');
     return isReady;
   }
 
@@ -73,6 +101,7 @@ class InterstitialAdCache {
 
     _ad = null;
     _loading = false;
+    _loadedAt = null;
 
     ad.fullScreenContentCallback = FullScreenContentCallback(
       onAdDismissedFullScreenContent: (a) {
@@ -90,7 +119,6 @@ class InterstitialAdCache {
       },
     );
 
-    // Bazı cihazlarda show çağrısı anında hata verebiliyor; bir frame sonra daha stabil.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       try {
         ad.show();
@@ -113,6 +141,7 @@ class InterstitialAdCache {
 
     _ad = null;
     _loading = false;
+    _loadedAt = null;
 
     final completer = Completer<bool>();
 
@@ -159,7 +188,16 @@ class InterstitialAdCache {
       _ad = null;
       _loadedAt = null;
       _loading = false;
+      final unit = _lastAdUnitId;
+      if (unit != null && unit.isNotEmpty) {
+        _schedulePreloadRetry(unit);
+      }
     }
+  }
+
+  void _log(String message) {
+    // ignore: avoid_print
+    print('[AdLoad] $message');
   }
 }
 
@@ -169,13 +207,8 @@ class AppInterstitials {
 
   static final gameStart = InterstitialAdCache();
 
-  /// "Reklam İzle Oyna" desteleri için ayrı cache (scheduler ile çakışmasın).
-  static final deckUnlock = InterstitialAdCache();
-
   static void preloadAll() {
     gameStart.dropIfStale();
     gameStart.preload(AdMobIds.gameStartInterstitial);
-    deckUnlock.dropIfStale();
-    deckUnlock.preload(AdMobIds.gameStartInterstitial);
   }
 }

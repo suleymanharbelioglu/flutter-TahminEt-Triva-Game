@@ -5,23 +5,25 @@ import 'package:ben_kimim/core/configs/ads/admob_ids.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-/// Geçiş reklamı: uygulama açılışında ilk gösterim 2 dk sonra,
-/// sonrasında 120 saniyede bir.
+/// Geçiş reklamı: uygulama açılışından itibaren 60 sn sonra ilk gösterim,
+/// sonrasında reklam kapandıktan 60 saniye sonra tekrar.
 /// [PhoneToForeheadPage] ve [GamePage] üzerindeyken asla gösterilmez;
 /// süre dolmuşsa bu sayfalardan çıkınca gösterilir.
 class InterstitialSchedulerCubit extends Cubit<void> {
   InterstitialSchedulerCubit() : super(null);
 
-  static const _initialDelay = Duration(seconds: 120);
-  static const _interval = Duration(seconds: 120);
-  static const deckWatchBonus = Duration(seconds: 40);
+  static const _interval = Duration(seconds: 60);
+  /// Yüklenemedi / henüz hazır değilse kısa süre sonra tekrar dene.
+  static const _retryWhenNotReady = Duration(seconds: 15);
+  /// Rewarded "Reklam İzle" tıklanınca bir sonraki geçişe eklenen süre.
+  static const rewardedWatchBonus = Duration(seconds: 30);
 
   Timer? _timer;
+  Timer? _tickTimer;
   DateTime? _nextFireAt;
   int _blockedDepth = 0;
   bool _pending = false;
   bool _enabled = true;
-  bool _pastInitial = false;
 
   bool get isBlocked => _blockedDepth > 0;
 
@@ -30,106 +32,151 @@ class InterstitialSchedulerCubit extends Cubit<void> {
     if (!enabled) {
       _stop();
       _pending = false;
-      _pastInitial = false;
+      debugPrint('InterstitialScheduler: DISABLED');
     } else {
       _start();
     }
   }
 
-  /// "Reklam İzle Oyna" sonrası: bir sonraki zamanlanmış geçiş reklamını
-  /// tek seferlik [bonus] kadar geciktirir.
-  void postponeNextShow({Duration bonus = deckWatchBonus}) {
+  /// Bir sonraki zamanlanmış geçiş reklamını [bonus] kadar geciktirir.
+  void postponeNextShow({Duration bonus = rewardedWatchBonus}) {
     if (!_enabled) return;
 
+    _pending = false;
     final remaining = _nextFireAt == null
-        ? (_pastInitial ? _interval : _initialDelay)
+        ? Duration.zero
         : _nextFireAt!.difference(DateTime.now());
     final base = remaining.isNegative ? Duration.zero : remaining;
-    _scheduleNext(base + bonus);
-
-    if (kDebugMode) {
-      debugPrint(
-        'InterstitialScheduler: next show postponed by ${bonus.inSeconds}s '
-        '(wait ${(base + bonus).inSeconds}s)',
-      );
-    }
+    _scheduleNext(base + bonus, reason: 'postpone +${bonus.inSeconds}s');
   }
 
   void _start() {
     if (!_enabled) return;
-    _pastInitial = false;
     AppInterstitials.gameStart.preload(AdMobIds.gameStartInterstitial);
-    _scheduleNext(_initialDelay);
-    if (kDebugMode) {
-      debugPrint(
-        'InterstitialScheduler: started '
-        '(first in ${_initialDelay.inSeconds}s, then every ${_interval.inSeconds}s)',
-      );
-    }
+    _scheduleNext(_interval, reason: 'start');
   }
 
-  void _scheduleNext(Duration delay) {
+  void _scheduleNext(Duration delay, {required String reason}) {
     _timer?.cancel();
     _nextFireAt = DateTime.now().add(delay);
     _timer = Timer(delay, _onTimerFire);
+    _startTickLog();
+    debugPrint(
+      'InterstitialScheduler: timer set → ${delay.inSeconds}s '
+      '(reason=$reason, blocked=$isBlocked, pending=$_pending)',
+    );
+  }
+
+  void _startTickLog() {
+    _tickTimer?.cancel();
+    _tickTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+      final next = _nextFireAt;
+      if (!_enabled || next == null) {
+        _tickTimer?.cancel();
+        _tickTimer = null;
+        return;
+      }
+      final remaining = next.difference(DateTime.now()).inSeconds;
+      if (remaining <= 0) {
+        debugPrint(
+          'InterstitialScheduler: timer → 0s '
+          '(blocked=$isBlocked, pending=$_pending)',
+        );
+        return;
+      }
+      debugPrint(
+        'InterstitialScheduler: timer → ${remaining}s '
+        '(blocked=$isBlocked, pending=$_pending)',
+      );
+    });
   }
 
   void _onTimerFire() {
     if (!_enabled) return;
-    _pastInitial = true;
+    debugPrint('InterstitialScheduler: timer FIRED (blocked=$isBlocked)');
     _onIntervalElapsed();
-    _scheduleNext(_interval);
   }
 
   void _stop() {
     _timer?.cancel();
     _timer = null;
+    _tickTimer?.cancel();
+    _tickTimer = null;
     _nextFireAt = null;
   }
 
   void enterBlockedScreen() {
     _blockedDepth++;
-    if (kDebugMode) {
-      debugPrint('InterstitialScheduler: blocked depth=$_blockedDepth');
-    }
+    debugPrint('InterstitialScheduler: blocked depth=$_blockedDepth');
   }
 
   void leaveBlockedScreen() {
     if (_blockedDepth > 0) _blockedDepth--;
-    if (kDebugMode) {
-      debugPrint(
-        'InterstitialScheduler: leave blocked depth=$_blockedDepth pending=$_pending',
-      );
-    }
+    debugPrint(
+      'InterstitialScheduler: leave blocked depth=$_blockedDepth pending=$_pending',
+    );
     if (_blockedDepth == 0 && _pending) {
       _pending = false;
-      _tryShowInterstitial();
+      unawaited(_tryShowInterstitial());
     }
   }
 
   void _onIntervalElapsed() {
     if (!_enabled) return;
-    if (kDebugMode) {
-      debugPrint(
-        'InterstitialScheduler: interval elapsed blocked=$isBlocked',
-      );
-    }
     if (isBlocked) {
+      // Timer durur; engelli ekrandan çıkınca gösterilir, süre o zaman başlar.
       _pending = true;
+      _tickTimer?.cancel();
+      _tickTimer = null;
+      debugPrint(
+        'InterstitialScheduler: pending (blocked) — show on leave',
+      );
     } else {
-      _tryShowInterstitial();
+      unawaited(_tryShowInterstitial());
     }
   }
 
-  void _tryShowInterstitial() {
-    AppInterstitials.gameStart.preload(AdMobIds.gameStartInterstitial);
-    final shown = AppInterstitials.gameStart.showIfReady(
+  Future<void> _tryShowInterstitial() async {
+    final cache = AppInterstitials.gameStart;
+    final adUnitId = AdMobIds.gameStartInterstitial;
+
+    debugPrint(
+      'InterstitialScheduler: show attempt start '
+      '(ready=${cache.isReady}, loading=${cache.isLoading})',
+    );
+
+    // Timer ateşlendiğinde yükleme sürüyorsa kısa bekle; yoksa yeniden dene.
+    final ready = await cache.waitUntilReady(
+      adUnitId,
+      timeout: const Duration(seconds: 5),
+    );
+
+    if (!_enabled) return;
+
+    if (!ready) {
+      debugPrint(
+        'InterstitialScheduler: show attempt → not ready '
+        '(ready=${cache.isReady}, loading=${cache.isLoading})',
+      );
+      _scheduleNext(_retryWhenNotReady, reason: 'not ready retry');
+      return;
+    }
+
+    final shown = cache.showIfReady(
       onDone: () {
-        AppInterstitials.gameStart.preload(AdMobIds.gameStartInterstitial);
+        cache.preload(adUnitId);
+        if (_enabled) {
+          _scheduleNext(_interval, reason: 'after dismiss');
+        }
       },
     );
-    if (kDebugMode) {
-      debugPrint('InterstitialScheduler: show attempt → ${shown ? "shown" : "not ready"}');
+
+    debugPrint(
+      'InterstitialScheduler: show attempt → ${shown ? "shown" : "not ready"}',
+    );
+
+    if (!shown && _enabled) {
+      _scheduleNext(_retryWhenNotReady, reason: 'not ready retry');
     }
   }
 

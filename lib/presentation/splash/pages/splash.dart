@@ -38,13 +38,29 @@ class _SplashPageState extends State<SplashPage> {
     if (_started) return;
     _started = true;
 
-    // 1) UMP → 2) ATT → 3) Ads init/preload (ATT reddedilse bile reklam yüklenir)
+    // 1) UMP (GDPR / IDFA bilgilendirme) tamamen bitsin
+    // 2) Hâlâ ATT sorulmadıysa: bilgilendirme → ATT (üst üste binmez)
+    // 3) Ads init/preload
     await _handleAdMobPrivacyMessaging();
+    await _waitForUiSettle();
     await _handleATTOnSplash();
     await AdsBootstrap.initializeAndPreload();
     if (!mounted) return;
 
     context.read<SplashCubit>().startSplash(context);
+  }
+
+  /// Modal/form kapandıktan sonra bir sonraki native dialog için nefes payı.
+  Future<void> _waitForUiSettle({
+    Duration delay = const Duration(milliseconds: 800),
+  }) async {
+    await Future.delayed(delay);
+    if (!mounted) return;
+    final frame = Completer<void>();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!frame.isCompleted) frame.complete();
+    });
+    await frame.future;
   }
 
   /// AdMob "Privacy & messaging" (UMP) formları: IDFA explainer dahil.
@@ -104,12 +120,29 @@ class _SplashPageState extends State<SplashPage> {
       return;
     }
 
-    if (status != TrackingStatus.notDetermined) return;
+    // UMP IDFA akışı ATT'yi zaten sorduysa tekrar açma (üst üste binmesin).
+    if (status != TrackingStatus.notDetermined) {
+      if (kDebugMode) {
+        debugPrint('ATT already determined: $status — skip');
+      }
+      return;
+    }
     if (!mounted) return;
 
-    // UMP modalı kapandıktan hemen sonra ATT bazen görünmez; kısa gecikme.
-    await Future.delayed(const Duration(milliseconds: 500));
+    // Önce uygulama içi bilgilendirme; kullanıcı kapatınca sistem ATT.
+    await _showAttPrePrompt();
     if (!mounted) return;
+
+    await _waitForUiSettle(delay: const Duration(milliseconds: 400));
+    if (!mounted) return;
+
+    // Bilgilendirme sırasında UMP/başka akış ATT sormuş olabilir.
+    try {
+      status = await AppTrackingTransparency.trackingAuthorizationStatus;
+    } catch (_) {
+      return;
+    }
+    if (status != TrackingStatus.notDetermined) return;
 
     try {
       await AppTrackingTransparency.requestTrackingAuthorization();
@@ -117,6 +150,31 @@ class _SplashPageState extends State<SplashPage> {
       // iOS 14 altı / beklenmeyen durumlarda sessizce geç.
     }
     // Tracking denied olsa da AdsBootstrap reklam yüklemeye devam eder.
+  }
+
+  /// Sistem ATT'den önce kısa bilgilendirme; üst üste binmeyi önler.
+  Future<void> _showAttPrePrompt() async {
+    if (!mounted) return;
+
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) {
+        return AlertDialog(
+          title: const Text('Takip izni'),
+          content: const Text(
+            'Daha ilgili reklamlar gösterebilmek ve uygulama deneyimini '
+            'iyileştirmek için bir sonraki ekranda takip izni isteyeceğiz.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: const Text('Devam'),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   @override

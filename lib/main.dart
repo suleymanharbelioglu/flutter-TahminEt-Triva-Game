@@ -16,6 +16,7 @@ import 'package:ben_kimim/presentation/game/bloc/current_name_cubit.dart';
 import 'package:ben_kimim/presentation/game/bloc/display_current_card_list_cubit.dart';
 import 'package:ben_kimim/presentation/game/bloc/current_deck_cubit.dart';
 import 'package:ben_kimim/presentation/game/bloc/interstitial_scheduler_cubit.dart';
+import 'package:ben_kimim/presentation/game/bloc/deck_play_credits_cubit.dart';
 import 'package:ben_kimim/presentation/game/bloc/score_cubit.dart';
 import 'package:ben_kimim/presentation/game/bloc/timer_cubit.dart';
 import 'package:ben_kimim/presentation/game_result/bloc/result_cubit.dart';
@@ -27,7 +28,9 @@ import 'package:ben_kimim/presentation/premium/bloc/purchase_cubit.dart';
 import 'package:ben_kimim/presentation/premium/bloc/unlock_premium.dart';
 import 'package:ben_kimim/presentation/splash/bloc/splash_cubit.dart';
 import 'package:ben_kimim/presentation/splash/pages/splash.dart';
+import 'package:ben_kimim/firebase_options.dart';
 import 'package:ben_kimim/service_locator.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -40,6 +43,10 @@ Future<void> main() async {
   if (kDebugMode) {
     debugPrint('APP START: main() reached');
   }
+
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
 
   // RevenueCat init (API key'ler dart-define ile verilir)
   if (RevenueCatConfig.isConfigured) {
@@ -128,6 +135,7 @@ class MyApp extends StatelessWidget {
             BlocProvider(create: (context) => PurchaseCubit()),
             BlocProvider(create: (context) => AdsCounterCubit()),
             BlocProvider(create: (context) => InterstitialSchedulerCubit()),
+            BlocProvider(create: (context) => DeckPlayCreditsCubit()),
             BlocProvider(create: (context) => CurrentDeckCubit()),
           ],
           child: _InterstitialBootstrap(

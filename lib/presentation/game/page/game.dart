@@ -10,11 +10,14 @@ import 'package:ben_kimim/presentation/game_result/page/game_result.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:ben_kimim/presentation/game/bloc/current_deck_cubit.dart';
+import 'package:ben_kimim/presentation/game/bloc/deck_play_credits_cubit.dart';
 import 'package:ben_kimim/presentation/game/bloc/current_name_cubit.dart';
 import 'package:ben_kimim/presentation/game/bloc/score_cubit.dart';
 import 'package:ben_kimim/presentation/game/bloc/timer_cubit.dart';
 import 'package:ben_kimim/presentation/game/widget/game_score.dart';
 import 'package:ben_kimim/presentation/game/widget/game_timer.dart';
+import 'package:ben_kimim/presentation/premium/bloc/is_user_premium_cubit.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:sensors_plus/sensors_plus.dart';
 
@@ -144,6 +147,13 @@ class _GamePageState extends State<GamePage> with TickerProviderStateMixin {
       await RateAppService.recordGameCompleted();
 
       if (!mounted) return;
+
+      final deck = context.read<CurrentDeckCubit>().state;
+      if (deck != null &&
+          deck.isAdDeck &&
+          !context.read<IsUserPremiumCubit>().state) {
+        context.read<DeckPlayCreditsCubit>().consumeRound(deck.deckName);
+      }
 
       Navigator.pushReplacement(
         context,

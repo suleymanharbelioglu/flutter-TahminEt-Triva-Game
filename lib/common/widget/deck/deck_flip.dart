@@ -2,12 +2,13 @@ import 'dart:async';
 import 'dart:math';
 import 'package:ben_kimim/common/widget/ads/ad_watch_icon.dart';
 import 'package:ben_kimim/common/navigator/app_navigator.dart';
-import 'package:ben_kimim/core/ads/deck_interstitial_ad_helper.dart';
-import 'package:ben_kimim/core/ads/interstitial_ad_cache.dart';
+import 'package:ben_kimim/core/ads/deck_rewarded_ad_helper.dart';
+import 'package:ben_kimim/core/ads/rewarded_ad_cache.dart';
 import 'package:ben_kimim/core/configs/ads/admob_ids.dart';
 import 'package:ben_kimim/core/configs/theme/app_color.dart';
 import 'package:ben_kimim/presentation/bottom_nav/bloc/bottom_nav_cubit.dart';
 import 'package:ben_kimim/presentation/game/bloc/current_deck_cubit.dart';
+import 'package:ben_kimim/presentation/game/bloc/deck_play_credits_cubit.dart';
 import 'package:ben_kimim/presentation/game/bloc/display_current_card_list_cubit.dart';
 import 'package:ben_kimim/presentation/game/bloc/timer_cubit.dart';
 import 'package:ben_kimim/presentation/phone_to_forhead/page/phone_to_forhead.dart';
@@ -37,7 +38,7 @@ class _DeckFlipState extends State<DeckFlip>
   late Animation<double> _flipAnim;
   bool isFront = true;
   bool canTap = false;
-  bool _isShowingAd = false;
+  bool _isShowingRewarded = false;
 
   @override
   void initState() {
@@ -45,12 +46,15 @@ class _DeckFlipState extends State<DeckFlip>
     _initAnimation();
     SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
     _autoFlip();
-    AppInterstitials.deckUnlock.preload(AdMobIds.gameStartInterstitial);
+    AppRewardedAds.deckUnlock.preload(AdMobIds.deckRewarded);
   }
 
-  bool _needsAdToPlay(BuildContext context) {
+  bool _needsRewardedToPlay(BuildContext context) {
     if (context.read<IsUserPremiumCubit>().state) return false;
-    return widget.deck.isAdDeck;
+    if (!widget.deck.isAdDeck) return false;
+    return !context
+        .read<DeckPlayCreditsCubit>()
+        .hasCredits(widget.deck.deckName);
   }
 
   Future<void> _startGameWithInterstitialPolicy() async {
@@ -58,19 +62,22 @@ class _DeckFlipState extends State<DeckFlip>
     _navigateToGamePage();
   }
 
-  Future<void> _showAdAndStart() async {
-    if (_isShowingAd) return;
-    setState(() => _isShowingAd = true);
+  Future<void> _showRewardedAndStart() async {
+    if (_isShowingRewarded) return;
+    setState(() => _isShowingRewarded = true);
 
-    final unlocked = await DeckInterstitialAdHelper.watchForDeckUnlock(
+    final creditsCubit = context.read<DeckPlayCreditsCubit>();
+    final deckName = widget.deck.deckName;
+
+    final rewarded = await DeckRewardedAdHelper.watchForDeckUnlock(
       context: context,
-      onUnlocked: () {},
+      onReward: () => creditsCubit.grantCredits(deckName),
     );
 
     if (!mounted) return;
-    setState(() => _isShowingAd = false);
+    setState(() => _isShowingRewarded = false);
 
-    if (!unlocked) return;
+    if (!rewarded) return;
 
     await context
         .read<DisplayCurrentCardListCubit>()
@@ -165,43 +172,47 @@ class _DeckFlipState extends State<DeckFlip>
         ),
         BlocBuilder<IsUserPremiumCubit, bool>(
           builder: (context, userIsPremium) {
-            if (userIsPremium) return const SizedBox.shrink();
+            return BlocBuilder<DeckPlayCreditsCubit, Map<String, int>>(
+              builder: (context, _) {
+                if (userIsPremium) return const SizedBox.shrink();
 
-            if (widget.deck.isPremium) {
-              return Positioned(
-                right: 8,
-                bottom: 8,
-                child: Hero(
-                  tag: "lock_${widget.deck.deckName}",
-                  child: Container(
-                    width: 72.h,
-                    height: 72.h,
-                    decoration: BoxDecoration(
-                      color: Colors.black.withOpacity(0.5),
-                      shape: BoxShape.circle,
+                if (widget.deck.isPremium) {
+                  return Positioned(
+                    right: 8,
+                    bottom: 8,
+                    child: Hero(
+                      tag: "lock_${widget.deck.deckName}",
+                      child: Container(
+                        width: 72.h,
+                        height: 72.h,
+                        decoration: BoxDecoration(
+                          color: Colors.black.withOpacity(0.5),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(
+                          Icons.lock,
+                          color: Colors.white,
+                          size: 40.h,
+                        ),
+                      ),
                     ),
-                    child: Icon(
-                      Icons.lock,
-                      color: Colors.white,
-                      size: 40.h,
+                  );
+                }
+
+                if (widget.deck.isAdDeck && _needsRewardedToPlay(context)) {
+                  return Positioned(
+                    right: 8,
+                    bottom: 8,
+                    child: Hero(
+                      tag: "ad_${widget.deck.deckName}",
+                      child: AdWatchIconBadge(size: 72.h, iconSize: 44.h),
                     ),
-                  ),
-                ),
-              );
-            }
+                  );
+                }
 
-            if (widget.deck.isAdDeck) {
-              return Positioned(
-                right: 8,
-                bottom: 8,
-                child: Hero(
-                  tag: "ad_${widget.deck.deckName}",
-                  child: AdWatchIconBadge(size: 72.h, iconSize: 44.h),
-                ),
-              );
-            }
-
-            return const SizedBox.shrink();
+                return const SizedBox.shrink();
+              },
+            );
           },
         ),
       ],
@@ -451,30 +462,35 @@ class _DeckFlipState extends State<DeckFlip>
             onTap: _flipBackAndClose,
             child: BlocBuilder<IsUserPremiumCubit, bool>(
               builder: (context, userIsPremium) {
-                final showVIP = widget.deck.isPremium && !userIsPremium;
-                final showWatchAd = !showVIP && _needsAdToPlay(context);
+                return BlocBuilder<DeckPlayCreditsCubit, Map<String, int>>(
+                  builder: (context, _) {
+                    final showVIP = widget.deck.isPremium && !userIsPremium;
+                    final showWatchAd =
+                        !showVIP && _needsRewardedToPlay(context);
 
-                final Color backgroundColor = showVIP
-                    ? _vipColor
-                    : showWatchAd
-                        ? _adGradientStart
-                        : AppColors.primary;
+                    final Color backgroundColor = showVIP
+                        ? _vipColor
+                        : showWatchAd
+                            ? _adGradientStart
+                            : AppColors.primary;
 
-                return CustomPaint(
-                  painter: _ArrowBackgroundPainter(
-                    backgroundColor: backgroundColor,
-                  ),
-                  child: SizedBox(
-                    width: 60.h,
-                    height: 45.h,
-                    child: Center(
-                      child: Icon(
-                        Icons.arrow_back_ios_new_rounded,
-                        color: Colors.white,
-                        size: 20.sp,
+                    return CustomPaint(
+                      painter: _ArrowBackgroundPainter(
+                        backgroundColor: backgroundColor,
                       ),
-                    ),
-                  ),
+                      child: SizedBox(
+                        width: 60.h,
+                        height: 45.h,
+                        child: Center(
+                          child: Icon(
+                            Icons.arrow_back_ios_new_rounded,
+                            color: Colors.white,
+                            size: 20.sp,
+                          ),
+                        ),
+                      ),
+                    );
+                  },
                 );
               },
             ),
@@ -483,42 +499,45 @@ class _DeckFlipState extends State<DeckFlip>
           // Oyna / VIP butonu
           BlocBuilder<IsUserPremiumCubit, bool>(
             builder: (context, userIsPremium) {
-              final showVIP = widget.deck.isPremium && !userIsPremium;
-              final showWatchAd = !showVIP && _needsAdToPlay(context);
+              return BlocBuilder<DeckPlayCreditsCubit, Map<String, int>>(
+                builder: (context, _) {
+                  final showVIP = widget.deck.isPremium && !userIsPremium;
+                  final showWatchAd =
+                      !showVIP && _needsRewardedToPlay(context);
 
-              Color gradientStart = showVIP
-                  ? _vipColor
-                  : showWatchAd
-                      ? _adGradientStart
-                      : const Color(0xFF007BFF);
-              Color gradientEnd = showVIP
-                  ? const Color(0xFF2ECC71)
-                  : showWatchAd
-                      ? _adGradientEnd
-                      : const Color(0xFF339CFF);
+                  Color gradientStart = showVIP
+                      ? _vipColor
+                      : showWatchAd
+                          ? _adGradientStart
+                          : const Color(0xFF007BFF);
+                  Color gradientEnd = showVIP
+                      ? const Color(0xFF2ECC71)
+                      : showWatchAd
+                          ? _adGradientEnd
+                          : const Color(0xFF339CFF);
 
-              return GestureDetector(
-                onTap: () async {
-                  if (_isShowingAd) return;
+                  return GestureDetector(
+                    onTap: () async {
+                      if (_isShowingRewarded) return;
 
-                  if (showVIP) {
-                    final cubit = context.read<BottomNavCubit>();
-                    Navigator.of(context).pop();
-                    await Future.delayed(const Duration(milliseconds: 300));
-                    cubit.changePage(0);
-                    return;
-                  }
+                      if (showVIP) {
+                        final cubit = context.read<BottomNavCubit>();
+                        Navigator.of(context).pop();
+                        await Future.delayed(const Duration(milliseconds: 300));
+                        cubit.changePage(0);
+                        return;
+                      }
 
-                  if (showWatchAd) {
-                    await _showAdAndStart();
-                    return;
-                  }
+                      if (showWatchAd) {
+                        await _showRewardedAndStart();
+                        return;
+                      }
 
-                  await context
-                      .read<DisplayCurrentCardListCubit>()
-                      .loadCardNames(widget.deck.namesFilePath);
-                  await _startGameWithInterstitialPolicy();
-                },
+                      await context
+                          .read<DisplayCurrentCardListCubit>()
+                          .loadCardNames(widget.deck.namesFilePath);
+                      await _startGameWithInterstitialPolicy();
+                    },
                 child: Container(
                   padding:
                       EdgeInsets.symmetric(horizontal: 24.w, vertical: 10.h),
@@ -573,6 +592,8 @@ class _DeckFlipState extends State<DeckFlip>
                     ],
                   ),
                 ),
+                  );
+                },
               );
             },
           ),

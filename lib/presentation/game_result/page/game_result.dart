@@ -2,11 +2,12 @@ import 'package:ben_kimim/common/widget/ads/ad_watch_icon.dart';
 import 'package:ben_kimim/common/navigator/app_navigator.dart';
 import 'package:ben_kimim/core/configs/ads/admob_ids.dart';
 import 'package:ben_kimim/core/configs/theme/app_color.dart';
-import 'package:ben_kimim/core/ads/deck_interstitial_ad_helper.dart';
+import 'package:ben_kimim/core/ads/deck_rewarded_ad_helper.dart';
 import 'package:ben_kimim/data/card/model/card_result.dart';
 import 'package:ben_kimim/presentation/bottom_nav/page/bottom_nav.dart';
 import 'package:ben_kimim/presentation/game/bloc/current_deck_cubit.dart';
 import 'package:ben_kimim/presentation/game/bloc/current_name_cubit.dart';
+import 'package:ben_kimim/presentation/game/bloc/deck_play_credits_cubit.dart';
 import 'package:ben_kimim/presentation/game/bloc/score_cubit.dart';
 import 'package:ben_kimim/presentation/game_result/bloc/result_cubit.dart';
 import 'package:ben_kimim/presentation/no_internet/page/no_internet.dart';
@@ -32,7 +33,7 @@ class _GameResultPageState extends State<GameResultPage> {
   final ScrollController _scrollController = ScrollController();
   double _scrollPosition = 0.0;
   double _scrollMax = 1.0;
-  bool _isShowingAd = false;
+  bool _isShowingRewarded = false;
 
   @override
   void initState() {
@@ -81,27 +82,30 @@ class _GameResultPageState extends State<GameResultPage> {
     context.read<ResultCubit>().reset();
   }
 
-  bool _needsAdToPlayAgain(BuildContext context) {
+  bool _needsRewardedToPlayAgain(BuildContext context) {
     if (context.read<IsUserPremiumCubit>().state) return false;
     final deck = context.read<CurrentDeckCubit>().state;
-    return deck != null && deck.isAdDeck;
+    if (deck == null || !deck.isAdDeck) return false;
+    return !context.read<DeckPlayCreditsCubit>().hasCredits(deck.deckName);
   }
 
   Future<void> _onPlayAgainPressed(BuildContext context) async {
-    if (_isShowingAd) return;
+    if (_isShowingRewarded) return;
 
-    if (_needsAdToPlayAgain(context)) {
-      setState(() => _isShowingAd = true);
+    if (_needsRewardedToPlayAgain(context)) {
+      setState(() => _isShowingRewarded = true);
 
-      final unlocked = await DeckInterstitialAdHelper.watchForDeckUnlock(
+      final deck = context.read<CurrentDeckCubit>().state!;
+      final creditsCubit = context.read<DeckPlayCreditsCubit>();
+      final rewarded = await DeckRewardedAdHelper.watchForDeckUnlock(
         context: context,
-        onUnlocked: () {},
+        onReward: () => creditsCubit.grantCredits(deck.deckName),
       );
 
       if (!mounted) return;
-      setState(() => _isShowingAd = false);
+      setState(() => _isShowingRewarded = false);
 
-      if (!unlocked) return;
+      if (!rewarded) return;
     }
 
     _navigateToGamePage();
@@ -224,39 +228,44 @@ class _GameResultPageState extends State<GameResultPage> {
   }
 
   Widget _buildPlayAgainButton(BuildContext context) {
-    final needsAd = _needsAdToPlayAgain(context);
-    final label = needsAd ? 'Reklam İzle Oyna' : 'Tekrar Oyna';
+    return BlocBuilder<DeckPlayCreditsCubit, Map<String, int>>(
+      builder: (context, _) {
+        final needsAd = _needsRewardedToPlayAgain(context);
+        final label = needsAd ? 'Reklam İzle Oyna' : 'Tekrar Oyna';
 
-    return Padding(
-      padding: EdgeInsets.all(16.r),
-      child: SizedBox(
-        height: 56.h,
-        width: double.infinity,
-        child: ElevatedButton(
-          onPressed: _isShowingAd ? null : () => _onPlayAgainPressed(context),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: AppColors.secondary,
-            shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12.r)),
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              if (needsAd) ...[
-                AdWatchIconButton(size: 24.sp),
-                SizedBox(width: 8.w),
-              ],
-              Text(
-                label,
-                style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 20.sp,
-                    fontWeight: FontWeight.bold),
+        return Padding(
+          padding: EdgeInsets.all(16.r),
+          child: SizedBox(
+            height: 56.h,
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed:
+                  _isShowingRewarded ? null : () => _onPlayAgainPressed(context),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.secondary,
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12.r)),
               ),
-            ],
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  if (needsAd) ...[
+                    AdWatchIconButton(size: 24.sp),
+                    SizedBox(width: 8.w),
+                  ],
+                  Text(
+                    label,
+                    style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 20.sp,
+                        fontWeight: FontWeight.bold),
+                  ),
+                ],
+              ),
+            ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 }

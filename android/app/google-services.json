@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "252247847740",
+    "project_id": "tahmin-et-e5778",
+    "storage_bucket": "tahmin-et-e5778.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:252247847740:android:b9019e198ca06a97fe6439",
+        "android_client_info": {
+          "package_name": "com.appliculture.tahmin_et"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyB0P-N4MjfRtJTgsIF69rgFlYl7Mc3jqeg"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
