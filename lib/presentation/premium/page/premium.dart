@@ -1,5 +1,5 @@
 import 'package:ben_kimim/common/widget/alert/secret_dialog.dart';
-import 'package:ben_kimim/data/app_purchase/model/product_model.dart';
+import 'package:ben_kimim/domain/app_purchase/entity/product_entity.dart';
 import 'package:ben_kimim/presentation/premium/bloc/load_products_cubit.dart';
 import 'package:ben_kimim/presentation/premium/bloc/load_products_state.dart';
 import 'package:ben_kimim/presentation/premium/bloc/premium_counter_cubit.dart';
@@ -40,7 +40,7 @@ class PremiumPage extends StatelessWidget {
           if (state is PremiumActive) {
             final productsState = context.read<LoadProductsCubit>().state;
 
-            ProductModel? product;
+            ProductEntity? product;
             final purchase = state.purchase;
 
             if (productsState is LoadProductsSuccess &&
@@ -336,7 +336,7 @@ class _PlansSection extends StatelessWidget {
     return dotParts.isNotEmpty ? dotParts.last : beforeColon;
   }
 
-  ProductModel _findProduct(List<ProductModel> products, String baseProductId) {
+  ProductEntity _findProduct(List<ProductEntity> products, String baseProductId) {
     return products.firstWhere(
       (p) => _normalizeId(p.productId) == baseProductId,
     );
@@ -356,7 +356,7 @@ class _PlansSection extends StatelessWidget {
   }
 
   /// App Store 3.1.2(c): abonelik başlığı mümkünse mağazadaki IAP adıyla aynı olmalı.
-  String _subscriptionDisplayTitle(ProductModel p) {
+  String _subscriptionDisplayTitle(ProductEntity p) {
     final fromStore = p.title.trim();
     if (fromStore.isNotEmpty) return fromStore;
     return _getTitle(p.productId);
@@ -376,7 +376,7 @@ class _PlansSection extends StatelessWidget {
     }
   }
 
-  String? _yearlyPerMonthLine(ProductModel yearly) {
+  String? _yearlyPerMonthLine(ProductEntity yearly) {
     if (yearly.rawPrice <= 0) return null;
     final perMonth = yearly.rawPrice / 12.0;
     final s = _formatMoneyLikePriceString(yearly.price, perMonth);
@@ -385,7 +385,7 @@ class _PlansSection extends StatelessWidget {
 
   /// Pazarlama indirim yüzdesi (kart rozetleri).
   String _discountBadge({
-    required ProductModel current,
+    required ProductEntity current,
     required double referenceRawPrice,
   }) {
     if (referenceRawPrice <= 0 || current.rawPrice <= 0) return '';
@@ -399,7 +399,7 @@ class _PlansSection extends StatelessWidget {
 
   /// Eski fiyat = güncel ham fiyat / (1 - indirimOranı); biçim mağaza `price` string'ine yaklaştırılır.
   String? _strikethroughPriceForPlan(
-    ProductModel product,
+    ProductEntity product,
     double discountFraction,
   ) {
     if (discountFraction <= 0 || discountFraction >= 1) return null;
@@ -408,7 +408,7 @@ class _PlansSection extends StatelessWidget {
     return _formatMoneyLikePriceString(product.price, oldRaw);
   }
 
-  String? _monthlyOldPriceTextForPlatform(ProductModel monthly) {
+  String? _monthlyOldPriceTextForPlatform(ProductEntity monthly) {
     if (monthly.rawPrice <= 0) return null;
     if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
       return _strikethroughPriceForPlan(

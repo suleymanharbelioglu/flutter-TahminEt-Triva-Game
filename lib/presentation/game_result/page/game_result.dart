@@ -1,9 +1,11 @@
 import 'package:ben_kimim/common/widget/ads/ad_watch_icon.dart';
 import 'package:ben_kimim/common/navigator/app_navigator.dart';
+import 'package:ben_kimim/core/ads/deck_rewarded_ad_helper.dart';
+import 'package:ben_kimim/core/analytics/analytics_service.dart';
 import 'package:ben_kimim/core/configs/ads/admob_ids.dart';
 import 'package:ben_kimim/core/configs/theme/app_color.dart';
-import 'package:ben_kimim/core/ads/deck_rewarded_ad_helper.dart';
 import 'package:ben_kimim/data/card/model/card_result.dart';
+import 'package:ben_kimim/domain/deck/policy/deck_play_access.dart';
 import 'package:ben_kimim/presentation/bottom_nav/page/bottom_nav.dart';
 import 'package:ben_kimim/presentation/game/bloc/current_deck_cubit.dart';
 import 'package:ben_kimim/presentation/game/bloc/current_name_cubit.dart';
@@ -15,6 +17,7 @@ import 'package:ben_kimim/presentation/phone_to_forhead/page/phone_to_forhead.da
 import 'package:ben_kimim/presentation/no_internet/bloc/internet_connection_cubit.dart';
 import 'package:ben_kimim/presentation/no_internet/bloc/internet_connection_state.dart';
 import 'package:ben_kimim/presentation/premium/bloc/is_user_premium_cubit.dart';
+import 'package:ben_kimim/service_locator.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -42,6 +45,7 @@ class _GameResultPageState extends State<GameResultPage> {
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
 
     _scrollController.addListener(_onScroll);
+    sl<AnalyticsService>().logScreenView(screenName: 'game_result');
   }
 
   Widget _withInternetListener(Widget child) {
@@ -82,24 +86,37 @@ class _GameResultPageState extends State<GameResultPage> {
     context.read<ResultCubit>().reset();
   }
 
-  bool _needsRewardedToPlayAgain(BuildContext context) {
-    if (context.read<IsUserPremiumCubit>().state) return false;
+  DeckPlayAccess _playAccess(BuildContext context) {
     final deck = context.read<CurrentDeckCubit>().state;
-    if (deck == null || !deck.isAdDeck) return false;
-    return !context.read<DeckPlayCreditsCubit>().hasCredits(deck.deckName);
+    if (deck == null) return DeckPlayAccess.canPlay;
+    return DeckPlayAccessPolicy.resolve(
+      userIsPremium: context.read<IsUserPremiumCubit>().state,
+      deckIsPremium: deck.isPremium,
+      deckIsAdDeck: deck.isAdDeck,
+      hasCredits:
+          context.read<DeckPlayCreditsCubit>().hasCredits(deck.deckName),
+    );
   }
 
   Future<void> _onPlayAgainPressed(BuildContext context) async {
     if (_isShowingRewarded) return;
 
-    if (_needsRewardedToPlayAgain(context)) {
+    final deck = context.read<CurrentDeckCubit>().state;
+    sl<AnalyticsService>().logPlayAgain(
+      deckName: deck?.deckName ?? 'unknown',
+      category: (deck?.categoryNameList.isNotEmpty ?? false)
+          ? deck!.categoryNameList.first
+          : 'unknown',
+    );
+
+    if (_playAccess(context) == DeckPlayAccess.watchRewarded) {
       setState(() => _isShowingRewarded = true);
 
-      final deck = context.read<CurrentDeckCubit>().state!;
+      final currentDeck = context.read<CurrentDeckCubit>().state!;
       final creditsCubit = context.read<DeckPlayCreditsCubit>();
       final rewarded = await DeckRewardedAdHelper.watchForDeckUnlock(
         context: context,
-        onReward: () => creditsCubit.grantCredits(deck.deckName),
+        onReward: () => creditsCubit.grantCredits(currentDeck.deckName),
       );
 
       if (!mounted) return;
@@ -230,7 +247,7 @@ class _GameResultPageState extends State<GameResultPage> {
   Widget _buildPlayAgainButton(BuildContext context) {
     return BlocBuilder<DeckPlayCreditsCubit, Map<String, int>>(
       builder: (context, _) {
-        final needsAd = _needsRewardedToPlayAgain(context);
+        final needsAd = _playAccess(context) == DeckPlayAccess.watchRewarded;
         final label = needsAd ? 'Reklam İzle Oyna' : 'Tekrar Oyna';
 
         return Padding(
@@ -359,10 +376,21 @@ class _BannerContainerState extends State<BannerContainer> {
             );
           }
         },
+        onAdImpression: (_) {
+          sl<AnalyticsService>().logAdsShown(
+            format: 'banner',
+            placement: 'game_result',
+          );
+        },
         onAdFailedToLoad: (ad, error) {
           ad.dispose();
           _isLoading = false;
           if (mounted) setState(() => _isAdLoaded = false);
+          sl<AnalyticsService>().logAdsFailed(
+            format: 'banner',
+            placement: 'game_result',
+            reason: 'load_failed_${error.code}',
+          );
           if (kDebugMode) {
             debugPrint(
               'BannerAd(gameResult) failed: code=${error.code} domain=${error.domain} message=${error.message}',

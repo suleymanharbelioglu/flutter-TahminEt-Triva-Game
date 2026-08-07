@@ -2,11 +2,13 @@ import 'dart:async';
 import 'dart:io' show Platform;
 import 'package:ben_kimim/common/widget/ads/blocked_screen_scope.dart';
 import 'package:ben_kimim/common/helper/sound/sound.dart';
+import 'package:ben_kimim/core/analytics/analytics_service.dart';
 import 'package:ben_kimim/core/configs/theme/app_color.dart';
 import 'package:ben_kimim/core/rate_app/rate_app_service.dart';
 import 'package:ben_kimim/presentation/bottom_nav/page/bottom_nav.dart';
 import 'package:ben_kimim/presentation/game_result/bloc/result_cubit.dart';
 import 'package:ben_kimim/presentation/game_result/page/game_result.dart';
+import 'package:ben_kimim/service_locator.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -47,6 +49,10 @@ class _GamePageState extends State<GamePage> with TickerProviderStateMixin {
   Timer? _timer;
   bool _isPaused = false;
 
+  DateTime? _gameStartedAt;
+  DateTime? _pausedAt;
+  Duration _pausedTotal = Duration.zero;
+
   @override
   void initState() {
     super.initState();
@@ -54,6 +60,31 @@ class _GamePageState extends State<GamePage> with TickerProviderStateMixin {
     _setupAnimations();
     _loadInitialNameAndStartTimer();
     _startSensorListening();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _logGameStarted());
+  }
+
+  int _gameDurationSeconds() {
+    final started = _gameStartedAt;
+    if (started == null) return 0;
+    var paused = _pausedTotal;
+    final pausedAt = _pausedAt;
+    if (pausedAt != null) {
+      paused += DateTime.now().difference(pausedAt);
+    }
+    final seconds = DateTime.now().difference(started).inSeconds - paused.inSeconds;
+    return seconds < 0 ? 0 : seconds;
+  }
+
+  void _logGameStarted() {
+    if (!mounted) return;
+    final deck = context.read<CurrentDeckCubit>().state;
+    sl<AnalyticsService>().logScreenView(screenName: 'game');
+    sl<AnalyticsService>().logGameStarted(
+      deckName: deck?.deckName ?? 'unknown',
+      category: (deck?.categoryNameList.isNotEmpty ?? false)
+          ? deck!.categoryNameList.first
+          : 'unknown',
+    );
   }
 
   @override
@@ -110,6 +141,9 @@ class _GamePageState extends State<GamePage> with TickerProviderStateMixin {
   void _startTimer() {
     final timerCubit = context.read<TimerCubit>();
     _remainingSeconds = timerCubit.state;
+    _gameStartedAt = DateTime.now();
+    _pausedTotal = Duration.zero;
+    _pausedAt = null;
 
     _timer = Timer.periodic(const Duration(seconds: 1), (t) {
       if (_isPaused) return;
@@ -154,6 +188,20 @@ class _GamePageState extends State<GamePage> with TickerProviderStateMixin {
           !context.read<IsUserPremiumCubit>().state) {
         context.read<DeckPlayCreditsCubit>().consumeRound(deck.deckName);
       }
+
+      final results = context.read<ResultCubit>().state;
+      final correctCount = results.where((r) => r.isCorrect).length;
+      final passCount = results.length - correctCount;
+      sl<AnalyticsService>().logGameFinished(
+        deckName: deck?.deckName ?? 'unknown',
+        category: (deck?.categoryNameList.isNotEmpty ?? false)
+            ? deck!.categoryNameList.first
+            : 'unknown',
+        score: context.read<ScoreCubit>().state,
+        correctCount: correctCount,
+        passCount: passCount,
+        durationSeconds: _gameDurationSeconds(),
+      );
 
       Navigator.pushReplacement(
         context,
@@ -236,8 +284,18 @@ class _GamePageState extends State<GamePage> with TickerProviderStateMixin {
     if (fromZone == "correct") {
       scoreCubit.increment();
       resultCubit.addCorrectWord(currentNameCubit.state);
+      final deck = context.read<CurrentDeckCubit>().state;
+      sl<AnalyticsService>().logCardResult(
+        deckName: deck?.deckName ?? 'unknown',
+        isCorrect: true,
+      );
     } else if (fromZone == "pass") {
       resultCubit.addPassWord(currentNameCubit.state);
+      final deck = context.read<CurrentDeckCubit>().state;
+      sl<AnalyticsService>().logCardResult(
+        deckName: deck?.deckName ?? 'unknown',
+        isCorrect: false,
+      );
     }
 
     currentNameCubit.generateNewName();
@@ -341,6 +399,7 @@ class _GamePageState extends State<GamePage> with TickerProviderStateMixin {
 
   void _onBackPressed() {
     setState(() => _isPaused = true);
+    _pausedAt = DateTime.now();
     _showPauseDialog();
     SoundHelper.pauseLastSeconds();
   }
@@ -414,6 +473,23 @@ class _GamePageState extends State<GamePage> with TickerProviderStateMixin {
                             ),
                           ),
                           onPressed: () {
+                            final deck = context.read<CurrentDeckCubit>().state;
+                            final results = context.read<ResultCubit>().state;
+                            final correctCount =
+                                results.where((r) => r.isCorrect).length;
+                            sl<AnalyticsService>().logGameAbandoned(
+                              deckName: deck?.deckName ?? 'unknown',
+                              category:
+                                  (deck?.categoryNameList.isNotEmpty ?? false)
+                                      ? deck!.categoryNameList.first
+                                      : 'unknown',
+                              score: context.read<ScoreCubit>().state,
+                              correctCount: correctCount,
+                              passCount: results.length - correctCount,
+                              remainingSeconds: _remainingSeconds ?? 0,
+                              durationSeconds: _gameDurationSeconds(),
+                            );
+
                             context.read<CurrentNameCubit>().reset();
                             context.read<ScoreCubit>().reset();
                             context.read<ResultCubit>().reset();
@@ -450,6 +526,11 @@ class _GamePageState extends State<GamePage> with TickerProviderStateMixin {
                             ),
                           ),
                           onPressed: () {
+                            if (_pausedAt != null) {
+                              _pausedTotal +=
+                                  DateTime.now().difference(_pausedAt!);
+                              _pausedAt = null;
+                            }
                             setState(() => _isPaused = false);
                             SoundHelper.resumeLastSeconds();
                             Navigator.of(context).pop();

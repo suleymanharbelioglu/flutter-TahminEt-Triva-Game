@@ -1,9 +1,12 @@
 import 'package:ben_kimim/common/navigator/app_navigator.dart';
 import 'package:ben_kimim/core/ads/ads_bootstrap.dart';
+import 'package:ben_kimim/core/analytics/analytics_service.dart';
 import 'package:ben_kimim/core/configs/assets/app_images.dart';
 import 'package:ben_kimim/presentation/bottom_nav/page/bottom_nav.dart';
+import 'package:ben_kimim/presentation/game/bloc/interstitial_scheduler_cubit.dart';
 import 'package:ben_kimim/presentation/splash/bloc/splash_cubit.dart';
 import 'package:ben_kimim/presentation/splash/bloc/splash_state.dart';
+import 'package:ben_kimim/service_locator.dart';
 import 'package:app_tracking_transparency/app_tracking_transparency.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:flutter/material.dart';
@@ -28,6 +31,7 @@ class _SplashPageState extends State<SplashPage> {
   void initState() {
     super.initState();
     SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
+    sl<AnalyticsService>().logScreenView(screenName: 'splash');
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       _startOnce();
@@ -47,6 +51,8 @@ class _SplashPageState extends State<SplashPage> {
     await AdsBootstrap.initializeAndPreload();
     if (!mounted) return;
 
+    // Geçiş reklamı timer'ı / preload sadece SDK hazır olduktan sonra başlar.
+    context.read<InterstitialSchedulerCubit>().onAdsSdkReady();
     context.read<SplashCubit>().startSplash(context);
   }
 
@@ -125,6 +131,7 @@ class _SplashPageState extends State<SplashPage> {
       if (kDebugMode) {
         debugPrint('ATT already determined: $status — skip');
       }
+      sl<AnalyticsService>().logAttResult(status: status.name);
       return;
     }
     if (!mounted) return;
@@ -142,10 +149,16 @@ class _SplashPageState extends State<SplashPage> {
     } catch (_) {
       return;
     }
-    if (status != TrackingStatus.notDetermined) return;
+    if (status != TrackingStatus.notDetermined) {
+      sl<AnalyticsService>().logAttResult(status: status.name);
+      return;
+    }
 
     try {
       await AppTrackingTransparency.requestTrackingAuthorization();
+      final after =
+          await AppTrackingTransparency.trackingAuthorizationStatus;
+      sl<AnalyticsService>().logAttResult(status: after.name);
     } catch (_) {
       // iOS 14 altı / beklenmeyen durumlarda sessizce geç.
     }

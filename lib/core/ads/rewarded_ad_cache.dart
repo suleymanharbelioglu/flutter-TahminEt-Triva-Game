@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:ben_kimim/core/ads/ad_exit_tracker.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
@@ -67,6 +68,7 @@ class RewardedAdCache {
   Future<bool> showIfReady({
     required VoidCallback onDone,
     required VoidCallback onReward,
+    String placement = 'deck_unlock',
   }) async {
     final ad = _ad;
     if (ad == null) return false;
@@ -76,12 +78,27 @@ class RewardedAdCache {
 
     final completer = Completer<bool>();
     var rewarded = false;
+    var settled = false;
+
+    void settle() {
+      if (settled) return;
+      settled = true;
+      unawaited(AdExitTracker.markFinished());
+      onDone();
+      if (!completer.isCompleted) completer.complete(rewarded);
+    }
+
+    unawaited(
+      AdExitTracker.markShowing(
+        format: 'rewarded',
+        placement: placement,
+      ),
+    );
 
     ad.fullScreenContentCallback = FullScreenContentCallback(
       onAdDismissedFullScreenContent: (a) {
         a.dispose();
-        onDone();
-        if (!completer.isCompleted) completer.complete(rewarded);
+        settle();
       },
       onAdFailedToShowFullScreenContent: (a, error) {
         if (kDebugMode) {
@@ -90,8 +107,7 @@ class RewardedAdCache {
           );
         }
         a.dispose();
-        onDone();
-        if (!completer.isCompleted) completer.complete(false);
+        settle();
       },
     );
 
@@ -105,8 +121,7 @@ class RewardedAdCache {
         );
       } catch (_) {
         ad.dispose();
-        onDone();
-        if (!completer.isCompleted) completer.complete(false);
+        settle();
       }
     });
 

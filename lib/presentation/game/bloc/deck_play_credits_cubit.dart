@@ -1,17 +1,16 @@
+import 'package:ben_kimim/domain/deck/policy/deck_play_access.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-/// Reklam izleyerek açılan desteler için kalan oyun hakkı (2 tur / reklam).
+/// Reklam izleyerek açılan desteler için kalan oyun hakkı.
 class DeckPlayCreditsCubit extends Cubit<Map<String, int>> {
   DeckPlayCreditsCubit() : super(const {});
-
-  static const int roundsPerAd = 2;
 
   int creditsFor(String deckName) => state[deckName] ?? 0;
 
   bool hasCredits(String deckName) => creditsFor(deckName) > 0;
 
   void grantCredits(String deckName) {
-    emit({...state, deckName: roundsPerAd});
+    emit({...state, deckName: DeckPlayAccessPolicy.roundsPerAd});
   }
 
   void consumeRound(String deckName) {

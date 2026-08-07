@@ -1,9 +1,11 @@
 import 'package:ben_kimim/common/widget/ads/ad_watch_icon.dart';
 import 'package:ben_kimim/common/helper/sound/sound.dart';
 import 'package:ben_kimim/common/widget/deck/deck_flip.dart';
+import 'package:ben_kimim/core/analytics/analytics_service.dart';
 import 'package:ben_kimim/presentation/bottom_nav/bloc/bottom_nav_cubit.dart';
 import 'package:ben_kimim/presentation/game/bloc/deck_play_credits_cubit.dart';
 import 'package:ben_kimim/presentation/premium/bloc/is_user_premium_cubit.dart';
+import 'package:ben_kimim/service_locator.dart';
 import 'package:flutter/material.dart';
 import 'package:ben_kimim/domain/deck/entity/deck.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -29,6 +31,15 @@ class DeckCover extends StatelessWidget {
         } catch (_) {}
 
         if (!context.mounted) return;
+
+        sl<AnalyticsService>().logDeckOpened(
+          deckName: deck.deckName,
+          category: deck.categoryNameList.isNotEmpty
+              ? deck.categoryNameList.first
+              : 'unknown',
+          isPremium: deck.isPremium,
+          isAdDeck: deck.isAdDeck,
+        );
 
         final bottomNavCubit = context.read<BottomNavCubit>();
         Navigator.of(context).push(

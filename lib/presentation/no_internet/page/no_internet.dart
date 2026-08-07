@@ -1,5 +1,7 @@
+import 'package:ben_kimim/core/analytics/analytics_service.dart';
 import 'package:ben_kimim/presentation/no_internet/bloc/internet_connection_cubit.dart';
 import 'package:ben_kimim/presentation/no_internet/bloc/internet_connection_state.dart';
+import 'package:ben_kimim/service_locator.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -18,6 +20,7 @@ class _NoInternetPageState extends State<NoInternetPage>
   @override
   void initState() {
     super.initState();
+    sl<AnalyticsService>().logNoInternetShown();
 
     _controller = AnimationController(
       vsync: this,

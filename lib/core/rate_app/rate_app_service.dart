@@ -1,74 +1,45 @@
-import 'dart:io' show Platform;
-
-import 'package:ben_kimim/core/configs/store_urls.dart';
-import 'package:ben_kimim/core/configs/theme/app_color.dart';
+import 'package:ben_kimim/domain/rate_app/repository/rate_app_repository.dart';
+import 'package:ben_kimim/domain/rate_app/usecase/rate_app_usecases.dart';
+import 'package:ben_kimim/service_locator.dart';
 import 'package:flutter/material.dart';
 import 'package:package_info_plus/package_info_plus.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:ben_kimim/core/analytics/analytics_service.dart';
+import 'package:ben_kimim/core/configs/store_urls.dart';
+import 'package:ben_kimim/core/configs/theme/app_color.dart';
+import 'dart:io' show Platform;
 
+/// Presentation facade: eligibility usecase + UI sheet / store launch.
 class RateAppService {
-  static const _kGamesCompleted = 'rate_app_games_completed';
-  static const _kLastPromptMs = 'rate_app_last_prompt_ms';
-  static const _kDidRate = 'rate_app_did_rate';
-
-  // iOS App Store Connect numeric id (örn: 1234567890)
   static const String iosAppStoreId =
       String.fromEnvironment('APPSTORE_APP_ID', defaultValue: '');
 
-  static const int minCompletedGamesToPrompt = 3;
-  static const Duration repromptAfter = Duration(days: 7);
-
-  static Future<void> recordGameCompleted() async {
-    final prefs = await SharedPreferences.getInstance();
-    final current = prefs.getInt(_kGamesCompleted) ?? 0;
-    await prefs.setInt(_kGamesCompleted, current + 1);
+  static Future<void> recordGameCompleted() {
+    return sl<RecordGameCompletedUseCase>().call();
   }
 
-  static Future<bool> hasRated() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getBool(_kDidRate) == true;
+  static Future<bool> hasRated() {
+    return sl<RateAppRepository>().hasRated();
   }
 
   static Future<bool> maybeShowRateSheet(BuildContext context) async {
-    final prefs = await SharedPreferences.getInstance();
-    if (prefs.getBool(_kDidRate) == true) return false;
-
-    final games = prefs.getInt(_kGamesCompleted) ?? 0;
-    if (games < minCompletedGamesToPrompt) return false;
-
-    final lastMs = prefs.getInt(_kLastPromptMs);
-    if (lastMs != null) {
-      final last = DateTime.fromMillisecondsSinceEpoch(lastMs);
-      if (DateTime.now().difference(last) < repromptAfter) return false;
-    }
-
+    final should = await sl<ShouldShowRatePromptUseCase>().call(params: false);
+    if (!should) return false;
     if (!context.mounted) return false;
-
-    final didAction = await showRateSheet(context, force: false);
-    return didAction;
+    return showRateSheet(context, force: false);
   }
 
-  /// force=true → sayaç/7gün kuralını bypass eder (örn: üstteki yıldız butonu).
   static Future<bool> showRateSheet(
     BuildContext context, {
     required bool force,
   }) async {
-    final prefs = await SharedPreferences.getInstance();
-    if (prefs.getBool(_kDidRate) == true) return false;
-
-    if (!force) {
-      final games = prefs.getInt(_kGamesCompleted) ?? 0;
-      if (games < minCompletedGamesToPrompt) return false;
-
-      final lastMs = prefs.getInt(_kLastPromptMs);
-      if (lastMs != null) {
-        final last = DateTime.fromMillisecondsSinceEpoch(lastMs);
-        if (DateTime.now().difference(last) < repromptAfter) return false;
-      }
-    }
-
+    final should = await sl<ShouldShowRatePromptUseCase>().call(params: force);
+    if (!should) return false;
     if (!context.mounted) return false;
+
+    sl<AnalyticsService>().logRatePromptShown(
+      source: force ? 'manual' : 'auto',
+    );
 
     final result = await showModalBottomSheet<_RateSheetResult>(
       context: context,
@@ -78,12 +49,14 @@ class RateAppService {
     );
 
     if (result == null || result == _RateSheetResult.dismissed) {
-      await prefs.setInt(_kLastPromptMs, DateTime.now().millisecondsSinceEpoch);
+      sl<AnalyticsService>().logRatePromptAction(action: 'dismissed');
+      await sl<MarkRatePromptDismissedUseCase>().call();
       return true;
     }
 
     if (result == _RateSheetResult.rated) {
-      await prefs.setBool(_kDidRate, true);
+      sl<AnalyticsService>().logRatePromptAction(action: 'rated');
+      await sl<MarkAppRatedUseCase>().call();
       await openStoreReview(context);
       return true;
     }
@@ -110,7 +83,6 @@ class RateAppService {
         return;
       }
 
-      // Android
       if (StoreUrls.android.trim().isNotEmpty) {
         final uri = Uri.parse(StoreUrls.android);
         await launchUrl(uri, mode: LaunchMode.externalApplication);
@@ -141,14 +113,9 @@ class RateAppService {
 
 enum _RateSheetResult { rated, dismissed }
 
-class _RateAppSheet extends StatefulWidget {
+class _RateAppSheet extends StatelessWidget {
   const _RateAppSheet();
 
-  @override
-  State<_RateAppSheet> createState() => _RateAppSheetState();
-}
-
-class _RateAppSheetState extends State<_RateAppSheet> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -220,9 +187,9 @@ class _RateAppSheetState extends State<_RateAppSheet> {
                       },
                       iconSize: 36,
                       splashRadius: 22,
-                      icon: Icon(
+                      icon: const Icon(
                         Icons.star_outline_rounded,
-                        color: const Color(0xFFFFC107),
+                        color: Color(0xFFFFC107),
                       ),
                     );
                   }),
@@ -235,4 +202,3 @@ class _RateAppSheetState extends State<_RateAppSheet> {
     );
   }
 }
-

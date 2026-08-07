@@ -1,12 +1,14 @@
 import 'package:ben_kimim/presentation/all_decks/pages/all_decks.dart';
 import 'package:ben_kimim/presentation/bottom_nav/bloc/bottom_nav_cubit.dart';
 import 'package:ben_kimim/core/configs/ads/admob_ids.dart';
+import 'package:ben_kimim/core/analytics/analytics_service.dart';
 import 'package:ben_kimim/core/rate_app/rate_app_service.dart';
 import 'package:ben_kimim/presentation/how_to_play/page/how_to_play.dart';
 import 'package:ben_kimim/presentation/no_internet/bloc/internet_connection_state.dart';
 import 'package:ben_kimim/presentation/no_internet/page/no_internet.dart';
 import 'package:ben_kimim/presentation/premium/bloc/is_user_premium_cubit.dart';
 import 'package:ben_kimim/presentation/premium/page/premium.dart';
+import 'package:ben_kimim/service_locator.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/foundation.dart';
@@ -36,6 +38,9 @@ class _BottomNavPageState extends State<BottomNavPage> {
       SystemChrome.setPreferredOrientations([
         DeviceOrientation.portraitUp,
       ]);
+
+      if (!mounted) return;
+      sl<AnalyticsService>().logScreenView(screenName: 'decks');
 
       if (widget.showRatePrompt) {
         RateAppService.maybeShowRateSheet(context);
@@ -198,10 +203,21 @@ class _BannerContainerState extends State<BannerContainer> {
             );
           }
         },
+        onAdImpression: (_) {
+          sl<AnalyticsService>().logAdsShown(
+            format: 'banner',
+            placement: 'home',
+          );
+        },
         onAdFailedToLoad: (ad, error) {
           ad.dispose();
           _isLoading = false;
           if (mounted) setState(() => _isAdLoaded = false);
+          sl<AnalyticsService>().logAdsFailed(
+            format: 'banner',
+            placement: 'home',
+            reason: 'load_failed_${error.code}',
+          );
           if (kDebugMode) {
             debugPrint(
               'BannerAd(homePage) failed: code=${error.code} domain=${error.domain} message=${error.message}',

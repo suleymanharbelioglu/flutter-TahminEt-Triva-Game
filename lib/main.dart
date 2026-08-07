@@ -1,3 +1,5 @@
+import 'package:ben_kimim/core/ads/ad_exit_tracker.dart';
+import 'package:ben_kimim/core/analytics/analytics_service.dart';
 import 'package:ben_kimim/core/configs/theme/app_theme.dart';
 import 'package:ben_kimim/core/configs/revenuecat/revenuecat_config.dart';
 import 'package:ben_kimim/presentation/all_decks/bloc/bilim_ve_genelk_decks_cubit.dart';
@@ -68,6 +70,9 @@ Future<void> main() async {
   ]);
 
   await initializeDependencies();
+
+  // Önceki oturumda tam ekran reklam açıkken app kapatıldıysa event at.
+  await AdExitTracker.flushIfNeeded(sl<AnalyticsService>());
 
   // Mobile Ads: UMP + ATT sonrası Splash'te init edilir (sırayı bozma).
 
@@ -171,6 +176,7 @@ class _InterstitialBootstrapState extends State<_InterstitialBootstrap> {
     if (!mounted) return;
     final isPremium = context.read<IsUserPremiumCubit>().state;
     context.read<InterstitialSchedulerCubit>().setEnabled(!isPremium);
+    sl<AnalyticsService>().setIsPremium(isPremium);
   }
 
   @override
@@ -178,6 +184,7 @@ class _InterstitialBootstrapState extends State<_InterstitialBootstrap> {
     return BlocListener<IsUserPremiumCubit, bool>(
       listener: (_, isPremium) {
         context.read<InterstitialSchedulerCubit>().setEnabled(!isPremium);
+        sl<AnalyticsService>().setIsPremium(isPremium);
       },
       child: widget.child,
     );

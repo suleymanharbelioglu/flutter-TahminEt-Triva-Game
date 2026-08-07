@@ -4,10 +4,10 @@ import 'package:ben_kimim/domain/app_purchase/repository/purchase_repository.dar
 import 'package:ben_kimim/service_locator.dart';
 import 'package:dartz/dartz.dart';
 
-class RestorePurchasesUseCase
-    implements UseCase<Either<String, PurchaseEntity>, void> {
+class PurchaseProductUseCase
+    implements UseCase<Either<String, PurchaseEntity>, String> {
   @override
-  Future<Either<String, PurchaseEntity>> call({void params}) async {
-    return sl<PurchaseRepository>().restorePurchases();
+  Future<Either<String, PurchaseEntity>> call({String? params}) async {
+    return sl<PurchaseRepository>().purchaseProduct(params!);
   }
 }

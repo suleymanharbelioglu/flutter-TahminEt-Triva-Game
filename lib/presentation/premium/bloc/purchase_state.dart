@@ -1,4 +1,4 @@
-import 'package:ben_kimim/data/app_purchase/model/purchase_model.dart';
+import 'package:ben_kimim/domain/app_purchase/entity/purchase_entity.dart';
 
 abstract class PurchaseState {}
 
@@ -7,7 +7,7 @@ class PurchaseInitial extends PurchaseState {}
 class PurchaseInProgress extends PurchaseState {}
 
 class PurchaseSuccess extends PurchaseState {
-  final PurchaseModel purchase;
+  final PurchaseEntity purchase;
   PurchaseSuccess({required this.purchase});
 }
 

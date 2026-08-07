@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:ben_kimim/core/ads/ad_exit_tracker.dart';
 import 'package:ben_kimim/core/configs/ads/admob_ids.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
@@ -13,6 +14,7 @@ class InterstitialAdCache {
   InterstitialAd? _ad;
   bool _loading = false;
   DateTime? _loadedAt;
+  DateTime? _loadingStartedAt;
   Timer? _retryTimer;
   String? _lastAdUnitId;
 
@@ -22,18 +24,37 @@ class InterstitialAdCache {
   /// Preload fail sonrası yeniden deneme aralığı.
   static const Duration preloadRetryDelay = Duration(seconds: 10);
 
+  /// SDK init öncesi / takılı load için üst süre.
+  static const Duration loadWatchdog = Duration(seconds: 30);
+
   bool get isReady => _ad != null;
 
   bool get isLoading => _loading;
 
   void preload(String adUnitId) {
     if (adUnitId.isEmpty) return;
-    if (_loading || _ad != null) return;
+    // MobileAds.initialize tamamlanmadan load → callback gelmeyebilir / _loading kilitlenir.
+    if (!AppInterstitials.sdkInitialized) {
+      _log('preload skipped (Ads SDK not initialized) adUnit=$adUnitId');
+      return;
+    }
+    if (_ad != null) return;
+
+    if (_loading) {
+      final started = _loadingStartedAt;
+      final stuck = started != null &&
+          DateTime.now().difference(started) > loadWatchdog;
+      if (!stuck) return;
+      _log('preload watchdog → unlock stuck load adUnit=$adUnitId');
+      _loading = false;
+      _loadingStartedAt = null;
+    }
 
     _lastAdUnitId = adUnitId;
     _retryTimer?.cancel();
     _retryTimer = null;
     _loading = true;
+    _loadingStartedAt = DateTime.now();
     _log('preload start adUnit=$adUnitId');
 
     InterstitialAd.load(
@@ -42,12 +63,14 @@ class InterstitialAdCache {
       adLoadCallback: InterstitialAdLoadCallback(
         onAdLoaded: (ad) {
           _loading = false;
+          _loadingStartedAt = null;
           _ad = ad;
           _loadedAt = DateTime.now();
           _log('preload OK (cached) adUnit=$adUnitId');
         },
         onAdFailedToLoad: (error) {
           _loading = false;
+          _loadingStartedAt = null;
           _log(
             'preload FAIL adUnit=$adUnitId '
             'code=${error.code} domain=${error.domain} message=${error.message}',
@@ -74,6 +97,10 @@ class InterstitialAdCache {
   }) async {
     if (isReady) return true;
     if (adUnitId.isEmpty) return false;
+    if (!AppInterstitials.sdkInitialized) {
+      _log('wait skipped (Ads SDK not initialized)');
+      return false;
+    }
 
     _log(
       'wait for load adUnit=$adUnitId '
@@ -87,6 +114,15 @@ class InterstitialAdCache {
       await Future.delayed(const Duration(milliseconds: 100));
       if (!_loading && _ad == null) {
         preload(adUnitId);
+      } else if (_loading) {
+        final started = _loadingStartedAt;
+        if (started != null &&
+            DateTime.now().difference(started) > loadWatchdog) {
+          _log('wait watchdog → unlock stuck load');
+          _loading = false;
+          _loadingStartedAt = null;
+          preload(adUnitId);
+        }
       }
     }
 
@@ -95,18 +131,38 @@ class InterstitialAdCache {
   }
 
   /// Hazırsa gösterir ve kapanınca [onDone] çağırır. Hazır değilse false döner.
-  bool showIfReady({required VoidCallback onDone}) {
+  bool showIfReady({
+    required VoidCallback onDone,
+    String placement = 'timed_interstitial',
+  }) {
+    dropIfStale();
     final ad = _ad;
     if (ad == null) return false;
 
     _ad = null;
     _loading = false;
+    _loadingStartedAt = null;
     _loadedAt = null;
+
+    var settled = false;
+    void settle() {
+      if (settled) return;
+      settled = true;
+      unawaited(AdExitTracker.markFinished());
+      onDone();
+    }
+
+    unawaited(
+      AdExitTracker.markShowing(
+        format: 'interstitial',
+        placement: placement,
+      ),
+    );
 
     ad.fullScreenContentCallback = FullScreenContentCallback(
       onAdDismissedFullScreenContent: (a) {
         a.dispose();
-        onDone();
+        settle();
       },
       onAdFailedToShowFullScreenContent: (a, error) {
         if (kDebugMode) {
@@ -115,7 +171,7 @@ class InterstitialAdCache {
           );
         }
         a.dispose();
-        onDone();
+        settle();
       },
     );
 
@@ -127,7 +183,7 @@ class InterstitialAdCache {
           debugPrint('Interstitial show threw exception');
         }
         ad.dispose();
-        onDone();
+        settle();
       }
     });
 
@@ -135,21 +191,41 @@ class InterstitialAdCache {
   }
 
   /// Hazırsa gösterir; kapanınca true döner. Gösterilemezse false.
-  Future<bool> showAndAwait({required VoidCallback onDone}) async {
+  Future<bool> showAndAwait({
+    required VoidCallback onDone,
+    String placement = 'timed_interstitial',
+  }) async {
+    dropIfStale();
     final ad = _ad;
     if (ad == null) return false;
 
     _ad = null;
     _loading = false;
+    _loadingStartedAt = null;
     _loadedAt = null;
 
     final completer = Completer<bool>();
+    var settled = false;
+
+    void settle(bool shown) {
+      if (settled) return;
+      settled = true;
+      unawaited(AdExitTracker.markFinished());
+      onDone();
+      if (!completer.isCompleted) completer.complete(shown);
+    }
+
+    unawaited(
+      AdExitTracker.markShowing(
+        format: 'interstitial',
+        placement: placement,
+      ),
+    );
 
     ad.fullScreenContentCallback = FullScreenContentCallback(
       onAdDismissedFullScreenContent: (a) {
         a.dispose();
-        onDone();
-        if (!completer.isCompleted) completer.complete(true);
+        settle(true);
       },
       onAdFailedToShowFullScreenContent: (a, error) {
         if (kDebugMode) {
@@ -158,8 +234,7 @@ class InterstitialAdCache {
           );
         }
         a.dispose();
-        onDone();
-        if (!completer.isCompleted) completer.complete(false);
+        settle(false);
       },
     );
 
@@ -171,8 +246,7 @@ class InterstitialAdCache {
           debugPrint('Interstitial show threw exception');
         }
         ad.dispose();
-        onDone();
-        if (!completer.isCompleted) completer.complete(false);
+        settle(false);
       }
     });
 
@@ -188,6 +262,7 @@ class InterstitialAdCache {
       _ad = null;
       _loadedAt = null;
       _loading = false;
+      _loadingStartedAt = null;
       final unit = _lastAdUnitId;
       if (unit != null && unit.isNotEmpty) {
         _schedulePreloadRetry(unit);
@@ -205,7 +280,14 @@ class InterstitialAdCache {
 class AppInterstitials {
   AppInterstitials._();
 
+  /// [AdsBootstrap] MobileAds.initialize sonrası true yapar.
+  static bool sdkInitialized = false;
+
   static final gameStart = InterstitialAdCache();
+
+  static void markSdkInitialized() {
+    sdkInitialized = true;
+  }
 
   static void preloadAll() {
     gameStart.dropIfStale();

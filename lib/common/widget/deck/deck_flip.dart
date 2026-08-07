@@ -4,8 +4,11 @@ import 'package:ben_kimim/common/widget/ads/ad_watch_icon.dart';
 import 'package:ben_kimim/common/navigator/app_navigator.dart';
 import 'package:ben_kimim/core/ads/deck_rewarded_ad_helper.dart';
 import 'package:ben_kimim/core/ads/rewarded_ad_cache.dart';
+import 'package:ben_kimim/core/analytics/analytics_service.dart';
 import 'package:ben_kimim/core/configs/ads/admob_ids.dart';
 import 'package:ben_kimim/core/configs/theme/app_color.dart';
+import 'package:ben_kimim/domain/deck/entity/deck.dart';
+import 'package:ben_kimim/domain/deck/policy/deck_play_access.dart';
 import 'package:ben_kimim/presentation/bottom_nav/bloc/bottom_nav_cubit.dart';
 import 'package:ben_kimim/presentation/game/bloc/current_deck_cubit.dart';
 import 'package:ben_kimim/presentation/game/bloc/deck_play_credits_cubit.dart';
@@ -13,10 +16,10 @@ import 'package:ben_kimim/presentation/game/bloc/display_current_card_list_cubit
 import 'package:ben_kimim/presentation/game/bloc/timer_cubit.dart';
 import 'package:ben_kimim/presentation/phone_to_forhead/page/phone_to_forhead.dart';
 import 'package:ben_kimim/presentation/premium/bloc/is_user_premium_cubit.dart';
+import 'package:ben_kimim/service_locator.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:ben_kimim/domain/deck/entity/deck.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
@@ -47,14 +50,17 @@ class _DeckFlipState extends State<DeckFlip>
     SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
     _autoFlip();
     AppRewardedAds.deckUnlock.preload(AdMobIds.deckRewarded);
+    sl<AnalyticsService>().logScreenView(screenName: 'deck_detail');
   }
 
-  bool _needsRewardedToPlay(BuildContext context) {
-    if (context.read<IsUserPremiumCubit>().state) return false;
-    if (!widget.deck.isAdDeck) return false;
-    return !context
-        .read<DeckPlayCreditsCubit>()
-        .hasCredits(widget.deck.deckName);
+  DeckPlayAccess _playAccess(BuildContext context) {
+    return DeckPlayAccessPolicy.resolve(
+      userIsPremium: context.read<IsUserPremiumCubit>().state,
+      deckIsPremium: widget.deck.isPremium,
+      deckIsAdDeck: widget.deck.isAdDeck,
+      hasCredits:
+          context.read<DeckPlayCreditsCubit>().hasCredits(widget.deck.deckName),
+    );
   }
 
   Future<void> _startGameWithInterstitialPolicy() async {
@@ -199,7 +205,8 @@ class _DeckFlipState extends State<DeckFlip>
                   );
                 }
 
-                if (widget.deck.isAdDeck && _needsRewardedToPlay(context)) {
+                if (widget.deck.isAdDeck &&
+                    _playAccess(context) == DeckPlayAccess.watchRewarded) {
                   return Positioned(
                     right: 8,
                     bottom: 8,
@@ -265,8 +272,13 @@ class _DeckFlipState extends State<DeckFlip>
                         color: Colors.white,
                         size: 24.sp,
                       ),
-                      onPressed: () =>
-                          context.read<TimerCubit>().decrease(),
+                      onPressed: () {
+                        context.read<TimerCubit>().decrease();
+                        sl<AnalyticsService>().logTimerChanged(
+                          seconds: context.read<TimerCubit>().state,
+                          direction: 'decrease',
+                        );
+                      },
                     ),
                   ),
                   Expanded(
@@ -298,8 +310,13 @@ class _DeckFlipState extends State<DeckFlip>
                         color: Colors.white,
                         size: 24.sp,
                       ),
-                      onPressed: () =>
-                          context.read<TimerCubit>().increase(),
+                      onPressed: () {
+                        context.read<TimerCubit>().increase();
+                        sl<AnalyticsService>().logTimerChanged(
+                          seconds: context.read<TimerCubit>().state,
+                          direction: 'increase',
+                        );
+                      },
                     ),
                   ),
                 ],
@@ -464,9 +481,9 @@ class _DeckFlipState extends State<DeckFlip>
               builder: (context, userIsPremium) {
                 return BlocBuilder<DeckPlayCreditsCubit, Map<String, int>>(
                   builder: (context, _) {
-                    final showVIP = widget.deck.isPremium && !userIsPremium;
-                    final showWatchAd =
-                        !showVIP && _needsRewardedToPlay(context);
+                    final access = _playAccess(context);
+                    final showVIP = access == DeckPlayAccess.showVip;
+                    final showWatchAd = access == DeckPlayAccess.watchRewarded;
 
                     final Color backgroundColor = showVIP
                         ? _vipColor
@@ -501,9 +518,9 @@ class _DeckFlipState extends State<DeckFlip>
             builder: (context, userIsPremium) {
               return BlocBuilder<DeckPlayCreditsCubit, Map<String, int>>(
                 builder: (context, _) {
-                  final showVIP = widget.deck.isPremium && !userIsPremium;
-                  final showWatchAd =
-                      !showVIP && _needsRewardedToPlay(context);
+                  final access = _playAccess(context);
+                  final showVIP = access == DeckPlayAccess.showVip;
+                  final showWatchAd = access == DeckPlayAccess.watchRewarded;
 
                   Color gradientStart = showVIP
                       ? _vipColor
@@ -521,6 +538,9 @@ class _DeckFlipState extends State<DeckFlip>
                       if (_isShowingRewarded) return;
 
                       if (showVIP) {
+                        sl<AnalyticsService>().logVipLockedTap(
+                          deckName: widget.deck.deckName,
+                        );
                         final cubit = context.read<BottomNavCubit>();
                         Navigator.of(context).pop();
                         await Future.delayed(const Duration(milliseconds: 300));
@@ -529,6 +549,10 @@ class _DeckFlipState extends State<DeckFlip>
                       }
 
                       if (showWatchAd) {
+                        sl<AnalyticsService>().logDeckPlayBlocked(
+                          deckName: widget.deck.deckName,
+                          reason: 'needs_rewarded',
+                        );
                         await _showRewardedAndStart();
                         return;
                       }

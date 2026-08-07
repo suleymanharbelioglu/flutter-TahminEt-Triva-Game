@@ -1,15 +1,17 @@
-import 'package:ben_kimim/data/app_purchase/model/product_model.dart';
-import 'package:ben_kimim/data/app_purchase/model/purchase_model.dart';
 import 'dart:io';
+
+import 'package:ben_kimim/domain/app_purchase/entity/product_entity.dart';
+import 'package:ben_kimim/domain/app_purchase/entity/purchase_entity.dart';
+import 'package:ben_kimim/domain/app_purchase/usecase/load_products.dart';
+import 'package:ben_kimim/service_locator.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:purchases_flutter/purchases_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class PremiumInfoPage extends StatelessWidget {
-  final PurchaseModel purchase;
-  final ProductModel? product;
+  final PurchaseEntity purchase;
+  final ProductEntity? product;
 
   const PremiumInfoPage({
     super.key,
@@ -153,19 +155,26 @@ class PremiumInfoPage extends StatelessWidget {
     }
 
     // Fallback: PremiumInfoPage'e product null gelebiliyor (LoadProducts henüz dolmadan).
-    // Bu durumda RevenueCat offering içinden aynı baseId'li ürünü bulup fiyatı gösteriyoruz.
     try {
-      final offerings = await Purchases.getOfferings();
-      final offering = offerings.current;
-      if (offering == null) return '—';
-
-      final base = canonicalBaseId(_normalizeId(productId));
-      final match =
-          offering.availablePackages.map((p) => p.storeProduct).firstWhere(
-                (sp) => _normalizeId(sp.identifier) == base,
-                orElse: () => offering.availablePackages.first.storeProduct,
-              );
-      return match.priceString;
+      final result = await sl<LoadProductsUseCase>().call(
+        params: const [
+          'weekly_premium',
+          'monthly_premium',
+          'yearly_premium',
+        ],
+      );
+      return result.fold(
+        (_) => '—',
+        (products) {
+          final base = canonicalBaseId(_normalizeId(productId));
+          for (final item in products) {
+            if (_normalizeId(item.productId) == base) {
+              return item.price;
+            }
+          }
+          return products.isNotEmpty ? products.first.price : '—';
+        },
+      );
     } catch (_) {
       return '—';
     }

@@ -1,123 +1,71 @@
-import 'dart:async';
-
-import 'package:ben_kimim/data/app_purchase/model/purchase_model.dart';
+import 'package:ben_kimim/core/analytics/analytics_service.dart';
+import 'package:ben_kimim/domain/app_purchase/entity/purchase_entity.dart';
+import 'package:ben_kimim/domain/app_purchase/usecase/purchase_product.dart';
+import 'package:ben_kimim/domain/app_purchase/usecase/restore_purchases.dart';
 import 'package:ben_kimim/presentation/premium/bloc/purchase_state.dart';
 import 'package:ben_kimim/presentation/premium/helper/friendly_purchase_errors.dart';
+import 'package:ben_kimim/service_locator.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:purchases_flutter/purchases_flutter.dart';
 
 class PurchaseCubit extends Cubit<PurchaseState> {
   PurchaseCubit() : super(PurchaseInitial());
 
-  /// iOS: `com.company.app.weekly_premium` → `weekly_premium`
-  /// Android: `weekly_premium:weekly-plan` → `weekly_premium`
   String _baseId(String productId) {
     final beforeColon = productId.split(':').first;
     final dotParts = beforeColon.split('.');
     return dotParts.isNotEmpty ? dotParts.last : beforeColon;
   }
 
-  /// RevenueCat ile satın alma.
   Future<void> purchaseProduct(String productId) async {
+    final baseProductId = _baseId(productId);
+    if (isClosed) return;
     emit(PurchaseInProgress());
+    sl<AnalyticsService>().logPurchaseStarted(productId: baseProductId);
 
-    try {
-      final offerings = await Purchases.getOfferings();
-      final offering = offerings.current;
-      if (offering == null) {
+    final result =
+        await sl<PurchaseProductUseCase>().call(params: productId);
+
+    if (isClosed) return;
+    result.fold(
+      (message) {
+        sl<AnalyticsService>().logPurchaseFailed(
+          productId: baseProductId,
+          reason: message,
+        );
         emit(
           PurchaseFailure(
-            message:
-                'Üyelik seçenekleri şu an kullanılamıyor. Lütfen daha sonra tekrar deneyin.',
+            message: FriendlyPurchaseErrors.forPurchase(message),
           ),
         );
-        return;
-      }
-
-      final base = _baseId(productId);
-      Package? package;
-      for (final p in offering.availablePackages) {
-        if (_baseId(p.storeProduct.identifier) == base) {
-          package = p;
-          break;
-        }
-      }
-
-      final CustomerInfo customerInfo;
-      if (package != null) {
-        final result = await Purchases.purchase(
-          PurchaseParams.package(package),
-        );
-        customerInfo = result.customerInfo;
-      } else {
-        // Offering'de paket yoksa (ör. Weekly eksik) doğrudan Store ürününden satın al.
-        final storeId = productId.split(':').first;
-        final products = await Purchases.getProducts([storeId]);
-        if (products.isEmpty) {
-          emit(
-            PurchaseFailure(
-              message: FriendlyPurchaseErrors.forPurchase(
-                'product not found: $storeId',
-              ),
-            ),
-          );
-          return;
-        }
-        final storeProduct = products.firstWhere(
-          (sp) => _baseId(sp.identifier) == base,
-          orElse: () => products.first,
-        );
-        final result = await Purchases.purchase(
-          PurchaseParams.storeProduct(storeProduct),
-        );
-        customerInfo = result.customerInfo;
-      }
-      // Sonuç ekranında doğru planı göstermek için:
-      // - RevenueCat aktif aboneliği bazen birden fazla döndürebilir
-      // - PurchaseModel.fromCustomerInfo öncelik sırasına göre "seçilmiş" bir plan döndürür
-      // Bu yüzden, satın alınan planı (base) açıkça yazıyoruz.
-      final fromInfo = PurchaseModel.fromCustomerInfo(customerInfo);
-      final model = PurchaseModel(
-        productId: base,
-        isActive: fromInfo.isActive,
-        purchaseDate: DateTime.now(),
-        isSubscription: true,
-      );
-
-      if (model.isActive) {
-        emit(PurchaseSuccess(purchase: model));
-      } else {
-        emit(
-          PurchaseFailure(
-            message: FriendlyPurchaseErrors.forPurchase(
-              'purchase completed but not active',
-            ),
-          ),
-        );
-      }
-    } catch (e) {
-      emit(PurchaseFailure(message: FriendlyPurchaseErrors.forPurchase(e)));
-    }
+      },
+      (PurchaseEntity purchase) {
+        sl<AnalyticsService>().logPurchaseSuccess(productId: baseProductId);
+        emit(PurchaseSuccess(purchase: purchase));
+      },
+    );
   }
 
   Future<void> restore() async {
+    if (isClosed) return;
     emit(PurchaseInProgress());
-    try {
-      final info = await Purchases.restorePurchases();
-      final model = PurchaseModel.fromCustomerInfo(info);
-      if (model.isActive) {
-        emit(PurchaseSuccess(purchase: model));
-      } else {
+    sl<AnalyticsService>().logRestoreStarted();
+
+    final result = await sl<RestorePurchasesUseCase>().call();
+
+    if (isClosed) return;
+    result.fold(
+      (message) {
+        sl<AnalyticsService>().logRestoreFailed(reason: message);
         emit(
           PurchaseFailure(
-            message: FriendlyPurchaseErrors.forPurchase(
-              'no active plan',
-            ),
+            message: FriendlyPurchaseErrors.forPurchase(message),
           ),
         );
-      }
-    } catch (e) {
-      emit(PurchaseFailure(message: FriendlyPurchaseErrors.forPurchase(e)));
-    }
+      },
+      (PurchaseEntity purchase) {
+        sl<AnalyticsService>().logRestoreSuccess(productId: purchase.productId);
+        emit(PurchaseSuccess(purchase: purchase));
+      },
+    );
   }
 }

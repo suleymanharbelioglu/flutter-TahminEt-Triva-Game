@@ -3,8 +3,10 @@ import 'dart:async';
 import 'dart:io' show Platform;
 import 'package:ben_kimim/common/helper/sound/sound.dart';
 import 'package:ben_kimim/common/widget/ads/blocked_screen_scope.dart';
+import 'package:ben_kimim/core/analytics/analytics_service.dart';
 import 'package:ben_kimim/core/configs/theme/app_color.dart';
 import 'package:ben_kimim/presentation/game/page/game.dart';
+import 'package:ben_kimim/service_locator.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -37,6 +39,7 @@ class _PhoneToForeheadPageState extends State<PhoneToForeheadPage> {
     super.initState();
     countdown = 4;
     countdownStarted = false; // Her sayfa açılışında sıfırlanıyor
+    sl<AnalyticsService>().logScreenView(screenName: 'phone_to_forehead');
     // Yatay mod tek yöne kilitli
     // Android: mevcut davranış kalsın (landscapeLeft).
     // iOS: telefonun üst kısmı solda kalsın.

@@ -1,60 +1,54 @@
-import 'package:ben_kimim/data/app_purchase/model/purchase_model.dart';
 import 'package:ben_kimim/core/configs/revenuecat/revenuecat_config.dart';
+import 'package:ben_kimim/domain/app_purchase/entity/purchase_entity.dart';
+import 'package:ben_kimim/domain/app_purchase/repository/purchase_repository.dart';
+import 'package:ben_kimim/domain/app_purchase/usecase/get_premium_status.dart';
 import 'package:ben_kimim/presentation/premium/bloc/premium_status_state.dart';
+import 'package:ben_kimim/service_locator.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:purchases_flutter/purchases_flutter.dart';
 
 class PremiumStatusCubit extends Cubit<PremiumStatusState> {
   PremiumStatusCubit() : super(PremiumLoading()) {
     checkPremiumStatus();
   }
 
-  static const _preferredEntitlementIds = {'VIP', 'premium'};
-
-  void Function(CustomerInfo)? _listener;
+  void Function(PurchaseEntity)? _listener;
 
   Future<void> checkPremiumStatus() async {
+    if (isClosed) return;
     emit(PremiumLoading());
     if (!RevenueCatConfig.isConfigured) {
       emit(PremiumInactive());
       return;
     }
-    try {
-      final info = await Purchases.getCustomerInfo();
-      _emitFromCustomerInfo(info);
-      _listenCustomerInfo();
-    } catch (e) {
-      if (kDebugMode) {
-        debugPrint('PremiumStatusCubit.checkPremiumStatus failed: $e');
-      }
-      emit(
-        PremiumStatusFailure(
-          'Üyelik durumu şu an doğrulanamadı. Lütfen internet bağlantınızı kontrol edip tekrar deneyin.',
-        ),
-      );
-    }
+
+    final result = await sl<GetPremiumStatusUseCase>().call();
+
+    if (isClosed) return;
+    result.fold(
+      (message) {
+        if (kDebugMode) {
+          debugPrint('PremiumStatusCubit.checkPremiumStatus failed: $message');
+        }
+        emit(PremiumStatusFailure(message));
+      },
+      (purchase) {
+        _emitPurchase(purchase);
+        _listenUpdates();
+      },
+    );
   }
 
-  void _listenCustomerInfo() {
+  void _listenUpdates() {
     if (_listener != null) return;
-    _listener = (info) => _emitFromCustomerInfo(info);
-    Purchases.addCustomerInfoUpdateListener(_listener!);
+    _listener = _emitPurchase;
+    sl<PurchaseRepository>().addPremiumStatusListener(_listener!);
   }
 
-  void _emitFromCustomerInfo(CustomerInfo info) {
-    final hasActiveEntitlement = _preferredEntitlementIds.any(
-      (id) => info.entitlements.active.containsKey(id),
-    );
-    final fallbackHasAnyEntitlement = info.entitlements.active.isNotEmpty;
-    final isActive = hasActiveEntitlement || fallbackHasAnyEntitlement;
-
-    final model = PurchaseModel.fromCustomerInfo(
-      info,
-      isActiveOverride: isActive,
-    );
-    if (model.isActive) {
-      emit(PremiumActive(model));
+  void _emitPurchase(PurchaseEntity purchase) {
+    if (isClosed) return;
+    if (purchase.isActive) {
+      emit(PremiumActive(purchase));
     } else {
       emit(PremiumInactive());
     }
@@ -63,7 +57,7 @@ class PremiumStatusCubit extends Cubit<PremiumStatusState> {
   @override
   Future<void> close() {
     if (_listener != null) {
-      Purchases.removeCustomerInfoUpdateListener(_listener!);
+      sl<PurchaseRepository>().removePremiumStatusListener(_listener!);
       _listener = null;
     }
     return super.close();
