@@ -359,6 +359,32 @@ class AnalyticsService {
     );
   }
 
+  Future<void> logVipPromoShown({
+    required String deckName,
+    required String accessType,
+  }) {
+    return logEvent(
+      'vip_promo_shown',
+      parameters: {
+        'deck_name': _truncate(deckName),
+        'access_type': _truncate(accessType),
+      },
+    );
+  }
+
+  Future<void> logVipPromoCta({
+    required String deckName,
+    required bool accepted,
+  }) {
+    return logEvent(
+      'vip_promo_cta',
+      parameters: {
+        'deck_name': _truncate(deckName),
+        'accepted': accepted ? 'true' : 'false',
+      },
+    );
+  }
+
   Future<void> logDeckPlayBlocked({
     required String deckName,
     required String reason,

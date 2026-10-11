@@ -78,6 +78,7 @@ class _DeckFlipState extends State<DeckFlip>
     final rewarded = await DeckRewardedAdHelper.watchForDeckUnlock(
       context: context,
       onReward: () => creditsCubit.grantCredits(deckName),
+      deckName: deckName,
     );
 
     if (!mounted) return;
@@ -544,15 +545,11 @@ class _DeckFlipState extends State<DeckFlip>
                         final cubit = context.read<BottomNavCubit>();
                         Navigator.of(context).pop();
                         await Future.delayed(const Duration(milliseconds: 300));
-                        cubit.changePage(0);
+                        cubit.changePage(0, premiumSource: 'vip_locked');
                         return;
                       }
 
                       if (showWatchAd) {
-                        sl<AnalyticsService>().logDeckPlayBlocked(
-                          deckName: widget.deck.deckName,
-                          reason: 'needs_rewarded',
-                        );
                         await _showRewardedAndStart();
                         return;
                       }

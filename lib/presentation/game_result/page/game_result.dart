@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:ben_kimim/common/widget/ads/ad_watch_icon.dart';
 import 'package:ben_kimim/common/navigator/app_navigator.dart';
 import 'package:ben_kimim/core/ads/deck_rewarded_ad_helper.dart';
@@ -6,6 +7,7 @@ import 'package:ben_kimim/core/configs/ads/admob_ids.dart';
 import 'package:ben_kimim/core/configs/theme/app_color.dart';
 import 'package:ben_kimim/data/card/model/card_result.dart';
 import 'package:ben_kimim/domain/deck/policy/deck_play_access.dart';
+import 'package:ben_kimim/presentation/bottom_nav/bloc/bottom_nav_cubit.dart';
 import 'package:ben_kimim/presentation/bottom_nav/page/bottom_nav.dart';
 import 'package:ben_kimim/presentation/game/bloc/current_deck_cubit.dart';
 import 'package:ben_kimim/presentation/game/bloc/current_name_cubit.dart';
@@ -73,6 +75,8 @@ class _GameResultPageState extends State<GameResultPage> {
 
   void _navigateToHome(BuildContext context) {
     _resetCubits(context);
+    // VIP / rate prompt anasayfada (desteler) görünsün.
+    context.read<BottomNavCubit>().resetToHome();
     Navigator.pushReplacement(
         context,
         MaterialPageRoute(
@@ -117,6 +121,7 @@ class _GameResultPageState extends State<GameResultPage> {
       final rewarded = await DeckRewardedAdHelper.watchForDeckUnlock(
         context: context,
         onReward: () => creditsCubit.grantCredits(currentDeck.deckName),
+        deckName: currentDeck.deckName,
       );
 
       if (!mounted) return;
@@ -317,15 +322,22 @@ class BannerContainer extends StatefulWidget {
   State<BannerContainer> createState() => _BannerContainerState();
 }
 
-class _BannerContainerState extends State<BannerContainer> {
+class _BannerContainerState extends State<BannerContainer>
+    with WidgetsBindingObserver {
+  static const int _maxLoadAttempts = 3;
+  static const List<int> _retrySeconds = [15, 30, 60];
+
   BannerAd? _bannerAd;
   bool _isAdLoaded = false;
   bool _isLoading = false;
   AdSize? _adSize;
+  int _attempt = 0;
+  Timer? _retryTimer;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!context.read<IsUserPremiumCubit>().state) {
@@ -334,11 +346,44 @@ class _BannerContainerState extends State<BannerContainer> {
     });
   }
 
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      if (!_isAdLoaded && _attempt >= _maxLoadAttempts) {
+        _attempt = 0;
+      }
+      if (!_isAdLoaded &&
+          mounted &&
+          !context.read<IsUserPremiumCubit>().state) {
+        _loadBanner();
+      }
+    }
+  }
+
+  void _scheduleRetry() {
+    _retryTimer?.cancel();
+    if (_attempt >= _maxLoadAttempts) {
+      if (kDebugMode) {
+        debugPrint('BannerAd(gameResult): stop retry after $_attempt fails');
+      }
+      return;
+    }
+    final index = (_attempt - 1).clamp(0, _retrySeconds.length - 1);
+    final seconds = _retrySeconds[index];
+    _retryTimer = Timer(Duration(seconds: seconds), _loadBanner);
+  }
+
   Future<void> _loadBanner() async {
     if (!mounted) return;
     if (context.read<IsUserPremiumCubit>().state) return;
     if (_isLoading) return;
+    if (_retryTimer != null && _retryTimer!.isActive) return;
+    if (_attempt >= _maxLoadAttempts) return;
+
+    _retryTimer?.cancel();
+    _retryTimer = null;
     _isLoading = true;
+    _attempt += 1;
 
     _bannerAd?.dispose();
     _bannerAd = null;
@@ -354,6 +399,7 @@ class _BannerContainerState extends State<BannerContainer> {
         await AdSize.getCurrentOrientationAnchoredAdaptiveBannerAdSize(width);
     if (size == null || !mounted) {
       _isLoading = false;
+      _scheduleRetry();
       if (kDebugMode) {
         debugPrint('BannerAd(gameResult) size is null for width=$width');
       }
@@ -369,6 +415,7 @@ class _BannerContainerState extends State<BannerContainer> {
       listener: BannerAdListener(
         onAdLoaded: (_) {
           _isLoading = false;
+          _attempt = 0;
           if (mounted) setState(() => _isAdLoaded = true);
           if (kDebugMode) {
             debugPrint(
@@ -396,6 +443,7 @@ class _BannerContainerState extends State<BannerContainer> {
               'BannerAd(gameResult) failed: code=${error.code} domain=${error.domain} message=${error.message}',
             );
           }
+          _scheduleRetry();
         },
       ),
     )..load();
@@ -403,6 +451,8 @@ class _BannerContainerState extends State<BannerContainer> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _retryTimer?.cancel();
     _bannerAd?.dispose();
     super.dispose();
   }
@@ -415,7 +465,10 @@ class _BannerContainerState extends State<BannerContainer> {
     return BlocListener<InternetConnectionCubit, InternetConnectionState>(
       listener: (context, state) {
         if (state is InternetConnected && !isPremium) {
-          if (!_isAdLoaded) _loadBanner();
+          if (!_isAdLoaded) {
+            if (_attempt >= _maxLoadAttempts) _attempt = 0;
+            _loadBanner();
+          }
         }
       },
       child: _isAdLoaded && _bannerAd != null && _adSize != null

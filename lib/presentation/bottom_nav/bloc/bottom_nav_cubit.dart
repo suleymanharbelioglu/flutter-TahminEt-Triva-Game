@@ -13,11 +13,17 @@ class BottomNavCubit extends Cubit<int> {
     2: 'how_to_play',
   };
 
-  Future<void> changePage(int index) async {
+  /// Oyun sonrası ana sayfa (desteler) — ses/analytics yok.
+  void resetToHome() => emit(1);
+
+  Future<void> changePage(
+    int index, {
+    String premiumSource = 'tab',
+  }) async {
     await SoundHelper.playClick();
 
     if (index == 0) {
-      sl<AnalyticsService>().logPremiumViewed(source: 'tab');
+      sl<AnalyticsService>().logPremiumViewed(source: premiumSource);
     }
 
     final screen = _screenNames[index];

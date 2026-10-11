@@ -7,17 +7,17 @@ import 'package:ben_kimim/service_locator.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-/// Geçiş reklamı: Ads SDK hazır + non-premium olduktan 60 sn sonra ilk gösterim,
-/// sonrasında reklam kapandıktan 60 saniye sonra tekrar.
+/// Geçiş reklamı: Ads SDK hazır + non-premium olduktan 100 sn sonra ilk gösterim,
+/// sonrasında reklam kapandıktan 100 saniye sonra tekrar.
 /// [PhoneToForeheadPage] ve [GamePage] üzerindeyken asla gösterilmez;
 /// süre dolmuşsa bu sayfalardan çıkınca gösterilir.
 class InterstitialSchedulerCubit extends Cubit<void> {
   InterstitialSchedulerCubit() : super(null);
 
-  static const _interval = Duration(seconds: 60);
+  static const _interval = Duration(seconds: 100);
 
   /// Yüklenemedi / henüz hazır değilse kısa süre sonra tekrar dene.
-  static const _retryWhenNotReady = Duration(seconds: 15);
+  static const _retryWhenNotReady = Duration(seconds: 30);
 
   /// Rewarded "Reklam İzle" tıklanınca bir sonraki geçişe eklenen süre.
   static const rewardedWatchBonus = Duration(seconds: 30);

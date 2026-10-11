@@ -21,6 +21,7 @@ class DeckRewardedAdHelper {
   static Future<bool> watchForDeckUnlock({
     required BuildContext context,
     required VoidCallback onReward,
+    String? deckName,
   }) async {
     if (!context.mounted) return false;
 
@@ -68,10 +69,17 @@ class DeckRewardedAdHelper {
           placement: _placement,
           reason: 'closed_without_reward',
         );
+        if (deckName != null && deckName.isNotEmpty) {
+          await analytics.logDeckPlayBlocked(
+            deckName: deckName,
+            reason: 'closed_without_reward',
+          );
+        }
       }
       return watched;
     }
 
+    // Reklam yüklenmezse oyunu kilitleme — grace.
     await analytics.logAdsFailed(
       format: _format,
       placement: _placement,

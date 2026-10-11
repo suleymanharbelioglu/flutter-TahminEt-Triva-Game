@@ -1,7 +1,9 @@
+import 'dart:async';
 import 'package:ben_kimim/presentation/all_decks/pages/all_decks.dart';
 import 'package:ben_kimim/presentation/bottom_nav/bloc/bottom_nav_cubit.dart';
 import 'package:ben_kimim/core/configs/ads/admob_ids.dart';
 import 'package:ben_kimim/core/analytics/analytics_service.dart';
+import 'package:ben_kimim/core/premium/vip_promo_prompt_service.dart';
 import 'package:ben_kimim/core/rate_app/rate_app_service.dart';
 import 'package:ben_kimim/presentation/how_to_play/page/how_to_play.dart';
 import 'package:ben_kimim/presentation/no_internet/bloc/internet_connection_state.dart';
@@ -41,11 +43,23 @@ class _BottomNavPageState extends State<BottomNavPage> {
 
       if (!mounted) return;
       sl<AnalyticsService>().logScreenView(screenName: 'decks');
-
-      if (widget.showRatePrompt) {
-        RateAppService.maybeShowRateSheet(context);
-      }
+      _maybeShowHomePrompts();
     });
+  }
+
+  Future<void> _maybeShowHomePrompts() async {
+    // Anasayfa oturunca 1 sn bekle, sonra alert.
+    await Future.delayed(VipPromoPromptService.showDelay);
+    if (!mounted) return;
+    if (context.read<BottomNavCubit>().state != 1) return;
+
+    if (widget.showRatePrompt) {
+      final shownRate = await RateAppService.maybeShowRateSheet(context);
+      if (!mounted || shownRate) return;
+    }
+
+    final isPremium = context.read<IsUserPremiumCubit>().state;
+    await VipPromoPromptService.maybeShow(context, isPremium: isPremium);
   }
 
   @override
@@ -145,15 +159,22 @@ class BannerContainer extends StatefulWidget {
   State<BannerContainer> createState() => _BannerContainerState();
 }
 
-class _BannerContainerState extends State<BannerContainer> {
+class _BannerContainerState extends State<BannerContainer>
+    with WidgetsBindingObserver {
+  static const int _maxLoadAttempts = 3;
+  static const List<int> _retrySeconds = [15, 30, 60];
+
   BannerAd? _bannerAd;
   bool _isAdLoaded = false;
   bool _isLoading = false;
   AdSize? _adSize;
+  int _attempt = 0;
+  Timer? _retryTimer;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final isPremium = context.read<IsUserPremiumCubit>().state;
@@ -162,11 +183,42 @@ class _BannerContainerState extends State<BannerContainer> {
     });
   }
 
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      if (!_isAdLoaded && _attempt >= _maxLoadAttempts) {
+        _attempt = 0;
+      }
+      if (!_isAdLoaded && !context.read<IsUserPremiumCubit>().state) {
+        _loadBanner();
+      }
+    }
+  }
+
+  void _scheduleRetry() {
+    _retryTimer?.cancel();
+    if (_attempt >= _maxLoadAttempts) {
+      if (kDebugMode) {
+        debugPrint('BannerAd(homePage): stop retry after $_attempt fails');
+      }
+      return;
+    }
+    final index = (_attempt - 1).clamp(0, _retrySeconds.length - 1);
+    final seconds = _retrySeconds[index];
+    _retryTimer = Timer(Duration(seconds: seconds), _loadBanner);
+  }
+
   Future<void> _loadBanner() async {
     final isPremium = context.read<IsUserPremiumCubit>().state;
     if (isPremium) return;
     if (_isLoading) return;
+    if (_retryTimer != null && _retryTimer!.isActive) return;
+    if (_attempt >= _maxLoadAttempts) return;
+
+    _retryTimer?.cancel();
+    _retryTimer = null;
     _isLoading = true;
+    _attempt += 1;
 
     _bannerAd?.dispose();
     _bannerAd = null;
@@ -181,6 +233,7 @@ class _BannerContainerState extends State<BannerContainer> {
     );
     if (size == null || !mounted) {
       _isLoading = false;
+      _scheduleRetry();
       if (kDebugMode) {
         debugPrint('BannerAd(homePage) size is null for width=$width');
       }
@@ -196,6 +249,7 @@ class _BannerContainerState extends State<BannerContainer> {
       listener: BannerAdListener(
         onAdLoaded: (_) {
           _isLoading = false;
+          _attempt = 0;
           if (mounted) setState(() => _isAdLoaded = true);
           if (kDebugMode) {
             debugPrint(
@@ -223,6 +277,7 @@ class _BannerContainerState extends State<BannerContainer> {
               'BannerAd(homePage) failed: code=${error.code} domain=${error.domain} message=${error.message}',
             );
           }
+          _scheduleRetry();
         },
       ),
     )..load();
@@ -230,6 +285,8 @@ class _BannerContainerState extends State<BannerContainer> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _retryTimer?.cancel();
     _bannerAd?.dispose();
     super.dispose();
   }
@@ -243,8 +300,10 @@ class _BannerContainerState extends State<BannerContainer> {
     return BlocListener<InternetConnectionCubit, InternetConnectionState>(
       listener: (context, state) {
         if (state is InternetConnected && !isPremium) {
-          // If it's not visible/loaded yet, retry when connection returns.
-          if (!_isAdLoaded) _loadBanner();
+          if (!_isAdLoaded) {
+            if (_attempt >= _maxLoadAttempts) _attempt = 0;
+            _loadBanner();
+          }
         }
       },
       child: _isAdLoaded && _bannerAd != null && _adSize != null
